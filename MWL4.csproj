@@ -8,6 +8,10 @@
   <MakeDir Directories="$(TargetDir)libs" />
   <Move SourceFiles="@(DllsToMove)" DestinationFolder="$(TargetDir)libs" />
 </Target>
+    <Target Name="DeleteLibDirectoryOnClean" AfterTargets="Clean">
+    <Message Text="Removing Lib directory: '$(LibDirectory)'" Importance="high" />
+    <RemoveDir Directories="$(TargetDir)libs" />
+  </Target>
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>

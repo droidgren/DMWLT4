@@ -74,7 +74,7 @@
                     <Label Content="Port:" Grid.Row="1" Grid.RowSpan="4" RenderTransformOrigin="0.512,0.301" Margin="0,20,0,28"/>
                     <TextBox Grid.Row="2" Text="{Binding ServerPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="81,5,0,0" Grid.ColumnSpan="5" Height="17.96"/>
 
-                    <CheckBox Grid.Row="3" Content="Use TLS" IsChecked="{Binding UseTLS, Mode=TwoWay}" Margin="0,62,0,0" HorizontalAlignment="Left" Grid.Column="1"/>
+                    <CheckBox Grid.Row="3" Content="Use TLS" IsChecked="{Binding UseTLS, Mode=TwoWay}" Margin="25,62,0,0" HorizontalAlignment="Left" Grid.ColumnSpan="2" Grid.RowSpan="2"/>
 
                     <Button Grid.Row="3" Grid.Column="4" Content="Dicom Echo" Width="100" Command="{Binding DicomEchoCommand}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,62,0,0"/>
                     <Button Grid.Row="3" Grid.Column="2" Content="Ping" Width="100" Command="{Binding PingCommand}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,0" Grid.ColumnSpan="2" Grid.RowSpan="2"/>

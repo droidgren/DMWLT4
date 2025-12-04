@@ -9,7 +9,7 @@
 
 Built on the robust **Fellow Oak DICOM (fo-dicom)** library, this tool provides a reliable way to query worklists without the need for complex installation or heavy runtimes.
 
-![Application Screenshot](/Screenshots/print_screen.jpg)
+![Application Screenshot](/screenshots/print_screen.jpg)
 
 ## 🚀 Features
 

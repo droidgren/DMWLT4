@@ -1,0 +1,27 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="DMWLT4.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="Client_LogDimseDatasets" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="Client_LogDataPDUs" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="CallingAET" Type="System.String" Scope="User">
+      <Value Profile="(Default)">MyAET</Value>
+    </Setting>
+    <Setting Name="ServerAET" Type="System.String" Scope="User">
+      <Value Profile="(Default)">ServerAET</Value>
+    </Setting>
+    <Setting Name="ServerHost" Type="System.String" Scope="User">
+      <Value Profile="(Default)">ServerHostname</Value>
+    </Setting>
+    <Setting Name="ServerPort" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">104</Value>
+    </Setting>
+    <Setting Name="UseTLS" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>

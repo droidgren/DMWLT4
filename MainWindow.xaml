@@ -1,0 +1,223 @@
+﻿<Window x:Class="MWL4.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:MWL4"
+        mc:Ignorable="d"
+        Title="DICOM Modality Worklist Tester (DMWLT)" Height="600" Width="1200">
+    <DockPanel>
+        <Menu DockPanel.Dock="Top" Background="White">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Settings" Click="SettingsMenuItem_Click" />
+                <MenuItem Header="_Open log directory" Click="OpenLogDirectoryMenuItem_Click" />
+                <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About" Command="{Binding AboutCommand}" />
+            </MenuItem>
+        </Menu>
+
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusText}"/>
+            </StatusBarItem>
+        </StatusBar>
+        <Grid Margin="8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <GroupBox Header="Local" Grid.Row="0" Grid.Column="0" Margin="0,0,8,8" Height="60" VerticalAlignment="Top">
+                <Grid Margin="8,8,8,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Label Content="Calling AET:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Column="1" Text="{Binding CallingAET, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="10,5,0,6"/>
+                </Grid>
+            </GroupBox>
+
+            <GroupBox Header="Server" Grid.Column="0" Margin="0,65,8,8" Grid.RowSpan="2">
+                <Grid Margin="8,8,8,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="221*"/>
+                        <ColumnDefinition Width="34*"/>
+                        <ColumnDefinition Width="69*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Label Content="AET:" Grid.Row="0" Grid.RowSpan="2" Margin="0,-4,0,4" RenderTransformOrigin="0.504,0.378"/>
+                    <TextBox Grid.Row="0" Text="{Binding ServerAET, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="81,0,0,4" Grid.ColumnSpan="5"/>
+
+                    <Label Content="IP/Hostname:" Grid.RowSpan="3" Margin="0,18,0,5"/>
+                    <TextBox Grid.Row="1" Text="{Binding ServerHost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="81,0,0,24" Grid.ColumnSpan="5" Height="17.96" Grid.RowSpan="2"/>
+
+                    <Label Content="Port:" Grid.Row="1" Grid.RowSpan="4" RenderTransformOrigin="0.512,0.301" Margin="0,20,0,28"/>
+                    <TextBox Grid.Row="2" Text="{Binding ServerPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="81,5,0,0" Grid.ColumnSpan="5" Height="17.96"/>
+
+                    <CheckBox Grid.Row="3" Content="Use TLS" IsChecked="{Binding UseTLS, Mode=TwoWay}" Margin="0,62,0,0" HorizontalAlignment="Left" Grid.Column="1"/>
+
+                    <Button Grid.Row="3" Grid.Column="4" Content="Dicom Echo" Width="100" Command="{Binding DicomEchoCommand}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,62,0,0"/>
+                    <Button Grid.Row="3" Grid.Column="2" Content="Ping" Width="100" Command="{Binding PingCommand}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,0" Grid.ColumnSpan="2" Grid.RowSpan="2"/>
+                </Grid>
+            </GroupBox>
+
+            <GroupBox Header="Query" Grid.Row="0" Grid.Column="1" Grid.RowSpan="2" Margin="0,0,0,8">
+                <Grid Margin="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Label Content="Name:" Grid.Row="0"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding PatientName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" Height="17.96"/>
+
+                    <Label Content="Patient ID:" Grid.Row="1"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PatientID, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Height="17.96" Margin="0,0,0,4"/>
+
+                    <Label Content="Modality:" Grid.Row="2"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Modality, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Height="17.96" Margin="0,0,0,4"/>
+
+                    <Label Content="Station AET:" Grid.Row="3"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StationAET, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Height="17.96" Margin="0,0,0,4"/>
+
+                    <Label Content="Station Name:" Grid.Row="4"/>
+                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding StationName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Height="17.96" Margin="0,0,0,4"/>
+
+                    <Label Content="Start Date:" Grid.Row="5"/>
+                    <DatePicker Grid.Row="5" Grid.Column="1" SelectedDate="{Binding StartDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+
+                    <Label Content="End Date:" Grid.Row="6"/>
+                    <DatePicker Grid.Row="6" Grid.Column="1" SelectedDate="{Binding EndDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+
+                    <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                        <Button Content="Query" Width="100" Command="{Binding QueryCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </GroupBox>
+            <GroupBox Header="Results" Grid.Row="2" Grid.ColumnSpan="2">
+                <DataGrid ItemsSource="{Binding WorklistResults}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          IsReadOnly="False"
+                          Margin="8"
+                          ColumnWidth="Auto"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Binding="{Binding PatientName}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Patient Name" ToolTip="(0010,0010) Patient&#160;Name" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding PatientID}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Patient ID" ToolTip="(0010,0020) Patient&#160;ID" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding AccessionNumber}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Accession Nr" ToolTip="(0008,0050) Accession&#160;Number" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding RequestedProcedureID}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Requested Proc ID" ToolTip="(0040,1001) Requested&#160;Procedure&#160;ID" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding RequestedProcedureDescription}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Requested Proc Description" ToolTip="(0032,1060) Requested&#160;Procedure&#160;Description" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding ExamDescription}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Exam Description (SPS)" ToolTip="(0040,0007) Scheduled&#160;Procedure&#160;Step&#160;Description" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding ScheduledTime}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Scheduled Time" ToolTip="(0040,0003) Scheduled&#160;Procedure&#160;Step&#160;Start&#160;Time" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding ScheduledDate}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Scheduled Date" ToolTip="(0040,0002) Scheduled&#160;Procedure&#160;Step&#160;Start&#160;Date" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding ScheduledProcedureStepID}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Sched. Proc. Step ID" ToolTip="(0040,0009) Scheduled&#160;Procedure&#160;Step&#160;ID" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding ScheduledProcedureStepStatus}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="SPS Status" ToolTip="(0040,0020) Scheduled&#160;Procedure&#160;Step&#160;Status" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding Modality}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Modality" ToolTip="(0008,0060) Modality" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding ScheduledStationAET}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Station AET" ToolTip="(0040,0001) Scheduled&#160;Station&#160;AE&#160;Title" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding ScheduledStationName}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Station Name" ToolTip="(0040,0010) Scheduled&#160;Station&#160;Name" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding ScheduledProtocolCodeValue}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Protocol Code Value" ToolTip="(0008,0100) Code&#160;Value (from Scheduled&#160;Protocol&#160;Code&#160;Sequence)" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding ScheduledProtocolCodeMeaning}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Protocol Code Meaning" ToolTip="(0008,0104) Code&#160;Meaning (from Scheduled&#160;Protocol&#160;Code&#160;Sequence)" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding StudyInstanceUID}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Study Instance UID" ToolTip="(0020,000D) Study&#160;Instance&#160;UID" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </GroupBox>
+        </Grid>
+    </DockPanel>
+</Window>

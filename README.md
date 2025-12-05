@@ -1,4 +1,4 @@
-# DICOM Modality Worklist Tester
+# <img src="icon.jfif" width="48" height="48" alt="App Icon" style="vertical-align: middle;"> DICOM Modality Worklist Tester
 
 ![Version](https://img.shields.io/badge/version-1.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)

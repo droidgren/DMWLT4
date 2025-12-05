@@ -52,9 +52,9 @@
                 <Grid Margin="8,8,8,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="221*"/>
-                        <ColumnDefinition Width="34*"/>
-                        <ColumnDefinition Width="69*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="39*"/>
+                        <ColumnDefinition Width="80*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
@@ -74,7 +74,7 @@
                     <Label Content="Port:" Grid.Row="1" Grid.RowSpan="4" RenderTransformOrigin="0.512,0.301" Margin="0,20,0,28"/>
                     <TextBox Grid.Row="2" Text="{Binding ServerPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="81,5,0,0" Grid.ColumnSpan="5" Height="17.96"/>
 
-                    <CheckBox Grid.Row="3" Content="Use TLS" IsChecked="{Binding UseTLS, Mode=TwoWay}" Margin="25,62,0,0" HorizontalAlignment="Left" Grid.ColumnSpan="2" Grid.RowSpan="2"/>
+                    <CheckBox Grid.Row="3" Content="Use TLS" IsChecked="{Binding UseTLS, Mode=TwoWay}" Margin="10,62,0,0" HorizontalAlignment="Left" Grid.ColumnSpan="2" Grid.RowSpan="2"/>
 
                     <Button Grid.Row="3" Grid.Column="4" Content="Dicom Echo" Width="100" Command="{Binding DicomEchoCommand}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,62,0,0"/>
                     <Button Grid.Row="3" Grid.Column="2" Content="Ping" Width="100" Command="{Binding PingCommand}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,0" Grid.ColumnSpan="2" Grid.RowSpan="2"/>
@@ -121,8 +121,17 @@
                     <DatePicker Grid.Row="6" Grid.Column="1" SelectedDate="{Binding EndDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
 
                     <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-                        <Button Content="Query" Width="100" Command="{Binding QueryCommand}"/>
+                        <Button Content="Clear" Command="{Binding ClearResultsCommand}" Width="100" VerticalAlignment="Bottom" HorizontalAlignment="Right" />
                     </StackPanel>
+                    <Button Content="Query"
+                            Command="{Binding QueryCommand}"
+                            Grid.Column="1"
+                            Grid.Row="7"
+                            Width="100"
+                            VerticalAlignment="Top"
+                            HorizontalAlignment="Right"
+                            Margin="0,8,116,0"
+                            IsDefault="True"/>
                 </Grid>
             </GroupBox>
             <GroupBox Header="Results" Grid.Row="2" Grid.ColumnSpan="2">
@@ -133,7 +142,8 @@
                           Margin="8"
                           ColumnWidth="Auto"
                           ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          SelectionChanged="DataGrid_SelectionChanged">
                     <DataGrid.Columns>
                         <DataGridTextColumn Binding="{Binding PatientName}">
                             <DataGridTextColumn.Header>

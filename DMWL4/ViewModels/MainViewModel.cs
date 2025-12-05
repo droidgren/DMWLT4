@@ -88,6 +88,20 @@ namespace MWL4.ViewModels
         private string _statusText = "Ready";
         public string StatusText { get => _statusText; set { _statusText = value; OnPropertyChanged(); } }
 
+        // Selected rows count
+        private int _selectedCount;
+        public int SelectedCount
+        {
+            get => _selectedCount;
+            set
+            {
+                if (_selectedCount == value) return;
+                _selectedCount = value;
+                OnPropertyChanged();
+                UpdateStatusWithCounts();
+            }
+        }
+
         public ObservableCollection<WorklistItem> WorklistResults { get; } = new ObservableCollection<WorklistItem>();
 
         public ICommand DicomEchoCommand { get; }
@@ -95,6 +109,10 @@ namespace MWL4.ViewModels
         public ICommand ExitCommand { get; }
         public ICommand AboutCommand { get; }
         public ICommand PingCommand { get; }
+        public ICommand ClearResultsCommand { get; } // NEW
+
+        // Command to update selection count (bound from view)
+        public ICommand SelectionChangedCommand { get; }
 
         public MainViewModel()
         {
@@ -111,6 +129,29 @@ namespace MWL4.ViewModels
             {
                 SaveSettings();
                 Application.Current?.Shutdown();
+            });
+
+            ClearResultsCommand = new RelayCommand(_ => ClearResults()); // NEW
+
+            SelectionChangedCommand = new RelayCommand(p =>
+            {
+                // Expect parameter to be the selected count (int)
+                var count = 0;
+                if (p is int i)
+                {
+                    count = i;
+                }
+                else if (p != null)
+                {
+                    // Fallback: try to read Count property via reflection to support SelectedItems
+                    var prop = p.GetType().GetProperty("Count");
+                    if (prop != null)
+                    {
+                        var val = prop.GetValue(p, null);
+                        if (val is int ci) count = ci;
+                    }
+                }
+                SelectedCount = count;
             });
         }
 
@@ -166,6 +207,7 @@ namespace MWL4.ViewModels
                 _logger.Information("C-ECHO success");
                 ShowMessage($"Connection to {ServerHost} successful.", MessageBoxImage.Information);
                 StatusText = "Echo successful";
+                UpdateStatusWithCounts();
             }
             catch (Exception ex)
             {
@@ -191,11 +233,13 @@ namespace MWL4.ViewModels
                     {
                         ShowMessage($"Ping Success.\nTime: {reply.RoundtripTime}ms", MessageBoxImage.Information, "Ping Result");
                         StatusText = "Ping successful";
+                        UpdateStatusWithCounts();
                     }
                     else
                     {
                         ShowMessage($"Ping Failed: {reply.Status}", MessageBoxImage.Warning, "Ping Result");
                         StatusText = "Ping failed";
+                        UpdateStatusWithCounts();
                     }
                 }
             }
@@ -208,6 +252,7 @@ namespace MWL4.ViewModels
         private async Task DoQueryAsync()
         {
             WorklistResults.Clear();
+            SelectedCount = 0; // reset selection when querying
             StatusText = "Querying Worklist...";
 
             try
@@ -227,12 +272,34 @@ namespace MWL4.ViewModels
                 await client.AddRequestAsync(request);
                 await client.SendAsync();
 
-                StatusText = $"Found {WorklistResults.Count} items.";
+                UpdateStatusWithCounts();
                 _logger.Information("Query completed. Results: {count}", WorklistResults.Count);
             }
             catch (Exception ex)
             {
                 HandleError("Worklist query failed", ex);
+            }
+        }
+
+        private void ClearResults() // NEW
+        {
+            WorklistResults.Clear();
+            SelectedCount = 0;
+            StatusText = "Cleared results.";
+            UpdateStatusWithCounts();
+        }
+
+        private void UpdateStatusWithCounts()
+        {
+            // Compose status text to include result count and selection
+            var baseText = $"Found {WorklistResults.Count} items.";
+            if (SelectedCount > 0)
+            {
+                StatusText = $"{baseText} {SelectedCount} selected.";
+            }
+            else
+            {
+                StatusText = baseText;
             }
         }
 
@@ -264,7 +331,8 @@ namespace MWL4.ViewModels
                 ScheduledPerformingPhysicianName = ds.GetStringSafe(DicomTag.ScheduledPerformingPhysicianName, spsSeq),
                 ScheduledProtocolCodeValue = ds.GetNestedStringSafe(spsSeq, protoSeq, DicomTag.CodeValue),
                 ScheduledProtocolCodeMeaning = ds.GetNestedStringSafe(spsSeq, protoSeq, DicomTag.CodeMeaning),
-                ScheduledProtocolCodeScheme = ds.GetNestedStringSafe(spsSeq, protoSeq, DicomTag.CodingSchemeDesignator)
+                ScheduledProtocolCodeScheme = ds.GetNestedStringSafe(spsSeq, protoSeq, DicomTag.CodingSchemeDesignator
+                )
             };
         }
 

@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace MWL4
 {
@@ -56,6 +57,16 @@ namespace MWL4
                    ?? asm.GetName().Version?.ToString()
                    ?? "1.0";
             Title = $"{Title} v{ver}";
+        }
+
+        // Handles DataGrid SelectionChanged from MainWindow.xaml
+        private void DataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var dg = (DataGrid)sender;
+            if (DataContext is MainViewModel vm)
+            {
+                vm.SelectionChangedCommand.Execute(dg.SelectedItems?.Count ?? 0);
+            }
         }
     }
 }

@@ -101,7 +101,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 * Powered by [Fellow Oak DICOM (fo-dicom)](https://github.com/fo-dicom/fo-dicom).
-* Original idea by [Sonny Pate](https://github.com/sonnypate/MWL-Tester) project which is built on .NET 8.
+* Original idea and GUI design by [Sonny Pate](https://github.com/sonnypate/MWL-Tester) project which is built on .NET 8.
 
 ---
 

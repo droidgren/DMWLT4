@@ -14,7 +14,7 @@ Built on the robust **Fellow Oak DICOM (fo-dicom)** library, this tool provides 
 ## 🚀 Features
 
 * **Zero Dependencies:** Built on .NET 4.8 (included natively in Windows 10 and 11). No external runtime installation is required.
-* **Flexible Deployment:** Available as a portable executable or standard Windows installer (MSI/EXE) .
+* **Flexible Deployment:** Available as a portable executable or MSI installer .
 * **Connectivity Tools:** Integrated network **Ping** and DICOM Verification (**C-ECHO**) to troubleshoot connection issues before querying.
 * **Secure:** Full support for **TLS** (Transport Layer Security) for testing secure DICOM connections.
 * **Deep Logging:** Extensive logging settings to analyze communication traffic and debug DICOM associations.

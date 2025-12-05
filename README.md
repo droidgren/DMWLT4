@@ -14,7 +14,7 @@ Built on the robust **Fellow Oak DICOM (fo-dicom)** library, this tool provides 
 ## 🚀 Features
 
 * **Zero Dependencies:** Built on .NET 4.8 (included natively in Windows 10 and 11). No external runtime installation is required.
-* **Portable:** Single executable with a small file size.
+* **Flexible Deployment:** Available as a portable executable or standard Windows installer (MSI/EXE) .
 * **Connectivity Tools:** Integrated network **Ping** and DICOM Verification (**C-ECHO**) to troubleshoot connection issues before querying.
 * **Secure:** Full support for **TLS** (Transport Layer Security) for testing secure DICOM connections.
 * **Deep Logging:** Extensive logging settings to analyze communication traffic and debug DICOM associations.
@@ -67,11 +67,17 @@ These tags are retrieved in the response and are visible in the application logs
 
 ## 📦 Installation
 
-This is a portable application.
+You can choose between the Windows Installer or the Portable version.
 
-1.  Download the latest release.
+### Option 1: Portable 
+1.  Download the **ZIP file** from the [latest release](../../releases/latest).
 2.  Extract the files to a folder of your choice.
-3.  Run `DMWL4.exe`.
+3.  Run `DMWLT4.exe`.
+
+### Option 2: Installer 
+1.  Download the **MSI Installer** from the [latest release](../../releases/latest).
+2.  Double-click the file to install the application.
+3.  Launch **DICOM Modality Worklist Tester** from your Start Menu.
 
 ## ⚙️ Usage
 

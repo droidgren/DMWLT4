@@ -87,32 +87,32 @@ The application handles the following DICOM tags. You can configure which of the
 
 You can choose between the Windows Installer or the Portable version.
 
-### Option 1: Portable 
-1.  Download the **ZIP file** from the [latest release](../../releases/latest).
-2.  Extract the files to a folder of your choice.
-3.  Run `DMWLT4.exe`.
+### Option 1: Portable (Recommended - does not require administrative privileges)
+1. Download the **ZIP file** from the [latest release](../../releases/latest).
+2. Extract the files to a folder of your choice.
+3. Run `DMWLT4.exe`.
 
-### Option 2: Installer 
-1.  Download the **MSI Installer** from the [latest release](../../releases/latest).
-2.  Double-click the file to install the application.
-3.  Launch **DICOM Modality Worklist Tester** from your Start Menu.
+### Option 2: Installer
+1. Download the **MSI Installer** from the [latest release](../../releases/latest).
+2. Double-click the file to install the application.
+3. Launch **DICOM Modality Worklist Tester** from your Start Menu.
 
 ### ⚠️ Microsoft SmartScreen Warning
 Because this is an open-source tool and is not digitally signed with a paid certificate, you may see a **"Windows protected your PC"** warning (Microsoft Defender SmartScreen) when you try to run the application for the first time.
 
 To proceed:
-1.  Click **More info**.
-2.  Click **Run anyway**.
+1. Click **More info**.
+2. Click **Run anyway**.
 
 This is a standard warning for unsigned software and does not indicate a security threat.
 
 ## ⚙️ Usage
 
-1.  **Configure Connection:** Enter the IP, Port, and AE Title of the target Worklist SCP (RIS/PACS).
-2.  **Set Local AE:** Configure your local Calling AE Title.
-3.  **Test Connection:** Use the **Ping** or **DICOM Echo** buttons to verify network visibility.
-4.  **Query:** Enter search criteria (e.g., Modality, Date, or Patient Name) and execute the query.
-5.  **Review:** Check the results list. You can customize visible columns via **File -> Settings**.
+1. **Configure Connection:** Enter the IP, Port, and AE Title of the target Worklist SCP (RIS/PACS).
+2. **Set Local AE:** Configure your local Calling AE Title.
+3. **Test Connection:** Use the **Ping** or **DICOM Echo** buttons to verify network visibility.
+4. **Query:** Enter search criteria (e.g., Modality, Date, or Patient Name) and execute the query.
+5. **Review:** Check the results list. You can customize visible columns via **File -> Settings**.
 
 ## 🐛 Reporting Bugs & Feature Requests
 

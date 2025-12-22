@@ -20,7 +20,7 @@ Built on the robust **Fellow Oak DICOM (fo-dicom)** library, this tool provides 
 * [License](#-license)
 * [Acknowledgments](#-acknowledgments)
 
-## 🚀 Features
+## Features
 
 * **Zero Dependencies:** Built on .NET 4.8 (included natively in Windows 10 and 11). No external runtime installation is required.
 * **Flexible Deployment:** Available as a portable executable or MSI installer.
@@ -34,7 +34,7 @@ Built on the robust **Fellow Oak DICOM (fo-dicom)** library, this tool provides 
 ![Application Screenshot](/screenshots/main.jpg)
 ![Application Settings](/screenshots/settings.jpg)
 
-## 📋 Supported DICOM Tags
+##  Supported DICOM Tags
 
 The application handles the following DICOM tags. You can configure which of these tags are visible in the result grid via the **File -> Settings** menu.
 
@@ -78,12 +78,12 @@ The application handles the following DICOM tags. You can configure which of the
 | `OrderEntererLocation` | (0040,2009) | Order Enterer Location |
 | `ImagingServiceRequestComments` | (0040,2400) | Imaging Service Request Comments |
 
-## 🛠️ Requirements
+## Requirements
 
 * **OS:** Windows 10 or Windows 11.
 * **Framework:** .NET Framework 4.8 (Pre-installed on supported OS).
 
-## 📦 Installation
+## Installation
 
 You can choose between the Windows Installer or the Portable version.
 
@@ -106,7 +106,7 @@ To proceed:
 
 This is a standard warning for unsigned software and does not indicate a security threat.
 
-## ⚙️ Usage
+## Usage
 
 1. **Configure Connection:** Enter the IP, Port, and AE Title of the target Worklist SCP (RIS/PACS).
 2. **Set Local AE:** Configure your local Calling AE Title.
@@ -114,7 +114,7 @@ This is a standard warning for unsigned software and does not indicate a securit
 4. **Query:** Enter search criteria (e.g., Modality, Date, or Patient Name) and execute the query.
 5. **Review:** Check the results list. You can customize visible columns via **File -> Settings**.
 
-## 🐛 Reporting Bugs & Feature Requests
+##  Reporting Bugs & Feature Requests
 
 If you encounter any bugs or have an idea for a new feature, please open an issue in the [Issues](../../issues) section of this repository.
 

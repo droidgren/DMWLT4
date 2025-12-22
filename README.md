@@ -87,7 +87,7 @@ The application handles the following DICOM tags. You can configure which of the
 
 You can choose between the Windows Installer or the Portable version.
 
-### Option 1: Portable 
+### Option 1: Portable (Recomended does not require administrative privileges)
 1.  Download the **ZIP file** from the [latest release](../../releases/latest).
 2.  Extract the files to a folder of your choice.
 3.  Run `DMWLT4.exe`.

@@ -14,6 +14,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Linq;
 
 namespace MWL4.ViewModels
 {
@@ -88,7 +89,6 @@ namespace MWL4.ViewModels
         private string _statusText = "Ready";
         public string StatusText { get => _statusText; set { _statusText = value; OnPropertyChanged(); } }
 
-        // Selected rows count
         private int _selectedCount;
         public int SelectedCount
         {
@@ -109,9 +109,7 @@ namespace MWL4.ViewModels
         public ICommand ExitCommand { get; }
         public ICommand AboutCommand { get; }
         public ICommand PingCommand { get; }
-        public ICommand ClearResultsCommand { get; } // NEW
-
-        // Command to update selection count (bound from view)
+        public ICommand ClearResultsCommand { get; }
         public ICommand SelectionChangedCommand { get; }
 
         public MainViewModel()
@@ -131,11 +129,10 @@ namespace MWL4.ViewModels
                 Application.Current?.Shutdown();
             });
 
-            ClearResultsCommand = new RelayCommand(_ => ClearResults()); // NEW
+            ClearResultsCommand = new RelayCommand(_ => ClearResults());
 
             SelectionChangedCommand = new RelayCommand(p =>
             {
-                // Expect parameter to be the selected count (int)
                 var count = 0;
                 if (p is int i)
                 {
@@ -143,7 +140,6 @@ namespace MWL4.ViewModels
                 }
                 else if (p != null)
                 {
-                    // Fallback: try to read Count property via reflection to support SelectedItems
                     var prop = p.GetType().GetProperty("Count");
                     if (prop != null)
                     {
@@ -252,7 +248,7 @@ namespace MWL4.ViewModels
         private async Task DoQueryAsync()
         {
             WorklistResults.Clear();
-            SelectedCount = 0; // reset selection when querying
+            SelectedCount = 0;
             StatusText = "Querying Worklist...";
 
             try
@@ -281,7 +277,7 @@ namespace MWL4.ViewModels
             }
         }
 
-        private void ClearResults() // NEW
+        private void ClearResults()
         {
             WorklistResults.Clear();
             SelectedCount = 0;
@@ -291,7 +287,6 @@ namespace MWL4.ViewModels
 
         private void UpdateStatusWithCounts()
         {
-            // Compose status text to include result count and selection
             var baseText = $"Found {WorklistResults.Count} items.";
             if (SelectedCount > 0)
             {
@@ -307,6 +302,7 @@ namespace MWL4.ViewModels
         {
             var spsSeq = DicomTag.ScheduledProcedureStepSequence;
             var protoSeq = DicomTag.ScheduledProtocolCodeSequence;
+            var reqProcSeq = DicomTag.RequestedProcedureCodeSequence;
 
             return new WorklistItem
             {
@@ -315,11 +311,29 @@ namespace MWL4.ViewModels
                 AccessionNumber = ds.GetStringSafe(DicomTag.AccessionNumber),
                 PatientSex = ds.GetStringSafe(DicomTag.PatientSex),
                 PatientBirthDate = ds.GetStringSafe(DicomTag.PatientBirthDate),
+                PatientAge = ds.GetStringSafe(DicomTag.PatientAge),
+                PatientSize = ds.GetStringSafe(DicomTag.PatientSize),
+                PatientWeight = ds.GetStringSafe(DicomTag.PatientWeight),
+                MedicalAlerts = ds.GetStringSafe(DicomTag.MedicalAlerts),
+                Allergies = ds.GetStringSafe(DicomTag.Allergies),
+
                 StudyInstanceUID = ds.GetStringSafe(DicomTag.StudyInstanceUID),
+                AdmissionID = ds.GetStringSafe(DicomTag.AdmissionID),
+                CurrentPatientLocation = ds.GetStringSafe(DicomTag.CurrentPatientLocation),
+
+                RequestingPhysician = ds.GetStringSafe(DicomTag.RequestingPhysician), // New
                 RequestedProcedureID = ds.GetStringSafe(DicomTag.RequestedProcedureID),
                 RequestedProcedureDescription = ds.GetStringSafe(DicomTag.RequestedProcedureDescription),
                 RequestedProcedurePriority = ds.GetStringSafe(DicomTag.RequestedProcedurePriority),
                 ReasonForRequestedProcedure = ds.GetStringSafe(DicomTag.ReasonForTheRequestedProcedure),
+
+                // For RequestedProcedureCodeSequence, we try to get the first item's Code Meaning or Value
+                RequestedProcedureCodeSequence = ds.GetStringSafe(DicomTag.CodeMeaning, reqProcSeq),
+
+                OrderEnteredBy = ds.GetStringSafe(DicomTag.OrderEnteredBy),
+                OrderEntererLocation = ds.GetStringSafe(DicomTag.OrderEntererLocation),
+                ImagingServiceRequestComments = ds.GetStringSafe(DicomTag.ImagingServiceRequestComments),
+
                 ScheduledProcedureStepID = ds.GetStringSafe(DicomTag.ScheduledProcedureStepID, spsSeq),
                 Modality = ds.GetStringSafe(DicomTag.Modality, spsSeq),
                 ScheduledStationAET = ds.GetStringSafe(DicomTag.ScheduledStationAETitle, spsSeq),
@@ -328,11 +342,12 @@ namespace MWL4.ViewModels
                 ScheduledTime = ds.GetStringSafe(DicomTag.ScheduledProcedureStepStartTime, spsSeq),
                 ExamDescription = ds.GetStringSafe(DicomTag.ScheduledProcedureStepDescription, spsSeq),
                 ScheduledProcedureStepStatus = ds.GetStringSafe(DicomTag.ScheduledProcedureStepStatus, spsSeq),
+                ScheduledProcedureStepLocation = ds.GetStringSafe(DicomTag.ScheduledProcedureStepLocation, spsSeq),
+                PreMedication = ds.GetStringSafe(DicomTag.PreMedication, spsSeq),
                 ScheduledPerformingPhysicianName = ds.GetStringSafe(DicomTag.ScheduledPerformingPhysicianName, spsSeq),
                 ScheduledProtocolCodeValue = ds.GetNestedStringSafe(spsSeq, protoSeq, DicomTag.CodeValue),
                 ScheduledProtocolCodeMeaning = ds.GetNestedStringSafe(spsSeq, protoSeq, DicomTag.CodeMeaning),
-                ScheduledProtocolCodeScheme = ds.GetNestedStringSafe(spsSeq, protoSeq, DicomTag.CodingSchemeDesignator
-                )
+                ScheduledProtocolCodeScheme = ds.GetNestedStringSafe(spsSeq, protoSeq, DicomTag.CodingSchemeDesignator)
             };
         }
 
@@ -344,15 +359,35 @@ namespace MWL4.ViewModels
                 { DicomTag.PatientID, PatientID?.Trim() ?? string.Empty },
                 { DicomTag.PatientSex, string.Empty },
                 { DicomTag.PatientBirthDate, string.Empty },
+                { DicomTag.PatientAge, string.Empty },
+                { DicomTag.PatientSize, string.Empty },
+                { DicomTag.PatientWeight, string.Empty },
+                { DicomTag.MedicalAlerts, string.Empty },
+                { DicomTag.Allergies, string.Empty },
+
                 { DicomTag.AccessionNumber, string.Empty },
                 { DicomTag.AdmissionID, string.Empty },
                 { DicomTag.CurrentPatientLocation, string.Empty },
                 { DicomTag.StudyInstanceUID, string.Empty },
+
+                { DicomTag.RequestingPhysician, string.Empty }, // New
                 { DicomTag.RequestedProcedureDescription, string.Empty },
                 { DicomTag.RequestedProcedureID, string.Empty },
                 { DicomTag.RequestedProcedurePriority, string.Empty },
-                { DicomTag.ReasonForTheRequestedProcedure, string.Empty }
+                { DicomTag.ReasonForTheRequestedProcedure, string.Empty },
+                { DicomTag.OrderEnteredBy, string.Empty },
+                { DicomTag.OrderEntererLocation, string.Empty },
+                { DicomTag.ImagingServiceRequestComments, string.Empty }
             };
+
+            // Add Requested Procedure Code Sequence (Return Key)
+            var reqProcCodeItem = new DicomDataset
+            {
+                { DicomTag.CodeValue, string.Empty },
+                { DicomTag.CodeMeaning, string.Empty },
+                { DicomTag.CodingSchemeDesignator, string.Empty }
+            };
+            ds.Add(new DicomSequence(DicomTag.RequestedProcedureCodeSequence, reqProcCodeItem));
 
             var sps = new DicomDataset
             {
@@ -364,6 +399,8 @@ namespace MWL4.ViewModels
                 { DicomTag.ScheduledProcedureStepStartTime, string.Empty },
                 { DicomTag.ScheduledProcedureStepDescription, string.Empty },
                 { DicomTag.ScheduledProcedureStepStatus, string.Empty },
+                { DicomTag.ScheduledProcedureStepLocation, string.Empty },
+                { DicomTag.PreMedication, string.Empty },
                 { DicomTag.ScheduledPerformingPhysicianName, string.Empty },
                 { DicomTag.CommentsOnTheScheduledProcedureStep, string.Empty }
             };

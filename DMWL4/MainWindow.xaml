@@ -40,9 +40,6 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
                     <Label Content="Calling AET:" VerticalAlignment="Center"/>
                     <TextBox Grid.Column="1" Text="{Binding CallingAET, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="10,5,0,6"/>
                 </Grid>
@@ -123,19 +120,13 @@
                     <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
                         <Button Content="Clear" Command="{Binding ClearResultsCommand}" Width="100" VerticalAlignment="Bottom" HorizontalAlignment="Right" />
                     </StackPanel>
-                    <Button Content="Query"
-                            Command="{Binding QueryCommand}"
-                            Grid.Column="1"
-                            Grid.Row="7"
-                            Width="100"
-                            VerticalAlignment="Top"
-                            HorizontalAlignment="Right"
-                            Margin="0,8,116,0"
-                            IsDefault="True"/>
+                    <Button Content="Query" Command="{Binding QueryCommand}" Grid.Column="1" Grid.Row="7" Width="100" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,8,116,0" IsDefault="True"/>
                 </Grid>
             </GroupBox>
+
             <GroupBox Header="Results" Grid.Row="2" Grid.ColumnSpan="2">
-                <DataGrid ItemsSource="{Binding WorklistResults}"
+                <DataGrid x:Name="ResultsGrid" 
+                          ItemsSource="{Binding WorklistResults}"
                           AutoGenerateColumns="False"
                           CanUserAddRows="False"
                           IsReadOnly="False"
@@ -147,52 +138,115 @@
                     <DataGrid.Columns>
                         <DataGridTextColumn Binding="{Binding PatientName}">
                             <DataGridTextColumn.Header>
-                                <TextBlock Text="Patient Name" ToolTip="(0010,0010) Patient&#160;Name" />
+                                <TextBlock Text="Patient Name" ToolTip="(0010,0010) Patient Name" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding PatientID}">
                             <DataGridTextColumn.Header>
-                                <TextBlock Text="Patient ID" ToolTip="(0010,0020) Patient&#160;ID" />
+                                <TextBlock Text="Patient ID" ToolTip="(0010,0020) Patient ID" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding AccessionNumber}">
                             <DataGridTextColumn.Header>
-                                <TextBlock Text="Accession Nr" ToolTip="(0008,0050) Accession&#160;Number" />
+                                <TextBlock Text="Accession Nr" ToolTip="(0008,0050) Accession Number" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding PatientSex}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Patient Sex" ToolTip="(0010,0040) Patient Sex" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding PatientBirthDate}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Birth Date" ToolTip="(0010,0030) Patient Birth Date" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Binding="{Binding PatientAge}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Patient Age" ToolTip="(0010,1010) Patient Age" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding PatientSize}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Patient Size" ToolTip="(0010,1020) Patient Size" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding PatientWeight}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Patient Weight" ToolTip="(0010,1030) Patient Weight" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding Allergies}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Contrast Allergies" ToolTip="(0010,2110) Allergies" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding MedicalAlerts}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Medical Alerts" ToolTip="(0010,2000) Medical Alerts" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Binding="{Binding RequestingPhysician}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Requesting Physician" ToolTip="(0032,1032) Requesting Physician" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+
                         <DataGridTextColumn Binding="{Binding RequestedProcedureID}">
                             <DataGridTextColumn.Header>
-                                <TextBlock Text="Requested Proc ID" ToolTip="(0040,1001) Requested&#160;Procedure&#160;ID" />
+                                <TextBlock Text="Requested Proc ID" ToolTip="(0040,1001) Requested Procedure ID" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding RequestedProcedureDescription}">
                             <DataGridTextColumn.Header>
-                                <TextBlock Text="Requested Proc Description" ToolTip="(0032,1060) Requested&#160;Procedure&#160;Description" />
+                                <TextBlock Text="Requested Proc Description" ToolTip="(0032,1060) Requested Procedure Description" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding RequestedProcedureCodeSequence}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Requested Proc Code" ToolTip="(0032,1064) Requested Procedure Code Sequence" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding RequestedProcedurePriority}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Priority" ToolTip="(0040,1003) Requested Procedure Priority" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding ExamDescription}">
                             <DataGridTextColumn.Header>
-                                <TextBlock Text="Exam Description (SPS)" ToolTip="(0040,0007) Scheduled&#160;Procedure&#160;Step&#160;Description" />
+                                <TextBlock Text="Exam Description (SPS)" ToolTip="(0040,0007) Scheduled Procedure Step Description" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding ScheduledTime}">
                             <DataGridTextColumn.Header>
-                                <TextBlock Text="Scheduled Time" ToolTip="(0040,0003) Scheduled&#160;Procedure&#160;Step&#160;Start&#160;Time" />
+                                <TextBlock Text="Scheduled Time" ToolTip="(0040,0003) Scheduled Procedure Step Start Time" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding ScheduledDate}">
                             <DataGridTextColumn.Header>
-                                <TextBlock Text="Scheduled Date" ToolTip="(0040,0002) Scheduled&#160;Procedure&#160;Step&#160;Start&#160;Date" />
+                                <TextBlock Text="Scheduled Date" ToolTip="(0040,0002) Scheduled Procedure Step Start Date" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding ScheduledProcedureStepID}">
                             <DataGridTextColumn.Header>
-                                <TextBlock Text="Sched. Proc. Step ID" ToolTip="(0040,0009) Scheduled&#160;Procedure&#160;Step&#160;ID" />
+                                <TextBlock Text="Sched. Proc. Step ID" ToolTip="(0040,0009) Scheduled Procedure Step ID" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding ScheduledProcedureStepStatus}">
                             <DataGridTextColumn.Header>
-                                <TextBlock Text="SPS Status" ToolTip="(0040,0020) Scheduled&#160;Procedure&#160;Step&#160;Status" />
+                                <TextBlock Text="SPS Status" ToolTip="(0040,0020) Scheduled Procedure Step Status" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding ScheduledProcedureStepLocation}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="SPS Location" ToolTip="(0040,0011) Scheduled Procedure Step Location" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding PreMedication}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Pre-Medication" ToolTip="(0040,0012) Pre-Medication" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding Modality}">
@@ -202,27 +256,67 @@
                         </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding ScheduledStationAET}">
                             <DataGridTextColumn.Header>
-                                <TextBlock Text="Station AET" ToolTip="(0040,0001) Scheduled&#160;Station&#160;AE&#160;Title" />
+                                <TextBlock Text="Station AET" ToolTip="(0040,0001) Scheduled Station AE Title" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding ScheduledStationName}">
                             <DataGridTextColumn.Header>
-                                <TextBlock Text="Station Name" ToolTip="(0040,0010) Scheduled&#160;Station&#160;Name" />
+                                <TextBlock Text="Station Name" ToolTip="(0040,0010) Scheduled Station Name" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding ScheduledProtocolCodeValue}">
                             <DataGridTextColumn.Header>
-                                <TextBlock Text="Protocol Code Value" ToolTip="(0008,0100) Code&#160;Value (from Scheduled&#160;Protocol&#160;Code&#160;Sequence)" />
+                                <TextBlock Text="Protocol Code Value" ToolTip="(0008,0100) Code Value" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding ScheduledProtocolCodeMeaning}">
                             <DataGridTextColumn.Header>
-                                <TextBlock Text="Protocol Code Meaning" ToolTip="(0008,0104) Code&#160;Meaning (from Scheduled&#160;Protocol&#160;Code&#160;Sequence)" />
+                                <TextBlock Text="Protocol Code Meaning" ToolTip="(0008,0104) Code Meaning" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding ScheduledProtocolCodeScheme}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Protocol Code Scheme" ToolTip="(0008,0102) Coding Scheme Designator" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding ScheduledPerformingPhysicianName}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Performing Physician" ToolTip="(0040,0006) Scheduled Performing Physician Name" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding StudyInstanceUID}">
                             <DataGridTextColumn.Header>
-                                <TextBlock Text="Study Instance UID" ToolTip="(0020,000D) Study&#160;Instance&#160;UID" />
+                                <TextBlock Text="Study Instance UID" ToolTip="(0020,000D) Study Instance UID" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding AdmissionID}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Admission ID" ToolTip="(0038,0010) Admission ID" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding CurrentPatientLocation}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Patient Location" ToolTip="(0038,0300) Current Patient Location" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding ReasonForRequestedProcedure}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Reason for Request" ToolTip="(0040,1002) Reason for Requested Procedure" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding OrderEnteredBy}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Order Entered By" ToolTip="(0040,2008) Order Entered By" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding OrderEntererLocation}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Order Enterer Location" ToolTip="(0040,2009) Order Enterer Location" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding ImagingServiceRequestComments}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Service Request Comments" ToolTip="(0040,2400) Imaging Service Request Comments" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
                     </DataGrid.Columns>

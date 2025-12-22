@@ -1,11 +1,13 @@
 ﻿using DMWLT4.Properties;
 using MWL4.ViewModels;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 
 namespace MWL4
 {
@@ -19,6 +21,9 @@ namespace MWL4
             _viewModel = new MainViewModel();
             DataContext = _viewModel;
             AppendVersionToTitle();
+
+            // Apply column settings on startup
+            Loaded += (s, e) => UpdateColumnVisibility();
         }
 
         protected override void OnClosed(EventArgs e)
@@ -30,7 +35,34 @@ namespace MWL4
         private void SettingsMenuItem_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new SettingsDialog { Owner = this };
-            dlg.ShowDialog();
+            if (dlg.ShowDialog() == true)
+            {
+                UpdateColumnVisibility();
+            }
+        }
+
+        private void UpdateColumnVisibility()
+        {
+            var savedSetting = Settings.Default.VisibleColumns ?? string.Empty;
+            var visibleSet = new HashSet<string>(savedSetting.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries));
+
+            foreach (var column in ResultsGrid.Columns)
+            {
+                string boundProperty = null;
+
+                if (column is DataGridTextColumn textCol)
+                {
+                    if (textCol.Binding is Binding binding)
+                        boundProperty = binding.Path.Path;
+                }
+
+                if (!string.IsNullOrEmpty(boundProperty))
+                {
+                    column.Visibility = visibleSet.Contains(boundProperty)
+                        ? Visibility.Visible
+                        : Visibility.Collapsed;
+                }
+            }
         }
 
         private void OpenLogDirectoryMenuItem_Click(object sender, RoutedEventArgs e)
@@ -59,7 +91,6 @@ namespace MWL4
             Title = $"{Title} v{ver}";
         }
 
-        // Handles DataGrid SelectionChanged from MainWindow.xaml
         private void DataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             var dg = (DataGrid)sender;

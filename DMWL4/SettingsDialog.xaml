@@ -3,26 +3,59 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:p="clr-namespace:DMWLT4.Properties"
         Title="Settings"
-        Height="154"
-        Width="325"
+        Height="550"
+        Width="500"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize">
-    <Grid Margin="20">
-        <StackPanel VerticalAlignment="Top">
-            <StackPanel.Resources>
-                <Style TargetType="CheckBox">
-                    <Setter Property="Margin" Value="0,0,0,15"/>
-                </Style>
-            </StackPanel.Resources>
-            <CheckBox x:Name="LogDimseDatasets" 
-                      Content="Log DIMSE Datasets"
-                      IsChecked="{Binding Source={x:Static p:Settings.Default}, Path=Client_LogDimseDatasets, Mode=TwoWay}"/>
-            <CheckBox x:Name="LogDataPDUs" 
-                      Content="Log Data PDUs"
-                      IsChecked="{Binding Source={x:Static p:Settings.Default}, Path=Client_LogDataPDUs, Mode=TwoWay}"/>
-        </StackPanel>
-        <StackPanel VerticalAlignment="Bottom" HorizontalAlignment="Right" Orientation="Horizontal">
-            <Button Content="Close" Click="CloseButton_Click" Width="80" Height="30"/>
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <GroupBox Header="Result Table Columns" Grid.Row="0" Margin="0,0,0,10">
+            <DataGrid x:Name="ColumnsGrid" 
+                      AutoGenerateColumns="False" 
+                      CanUserAddRows="False" 
+                      CanUserDeleteRows="False"
+                      CanUserResizeRows="False"
+                      GridLinesVisibility="Horizontal"
+                      BorderThickness="1"
+                      Background="White">
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Header="Show" Width="50">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsVisible, UpdateSourceTrigger=PropertyChanged}" 
+                                          HorizontalAlignment="Center" 
+                                          VerticalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTextColumn Binding="{Binding PropertyName}" Header="Property Name" Width="2*" IsReadOnly="True"/>
+
+                    <DataGridTextColumn Binding="{Binding TagNumber}" Header="Tag no" Width="*" IsReadOnly="True"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+
+        <GroupBox Header="Logging" Grid.Row="1" Margin="0,0,0,10">
+            <StackPanel Margin="5">
+                <CheckBox x:Name="LogDimseDatasets" 
+                          Content="Log DIMSE Datasets"
+                          Margin="0,0,0,5"
+                          IsChecked="{Binding Source={x:Static p:Settings.Default}, Path=Client_LogDimseDatasets, Mode=TwoWay}"/>
+                <CheckBox x:Name="LogDataPDUs" 
+                          Content="Log Data PDUs"
+                          IsChecked="{Binding Source={x:Static p:Settings.Default}, Path=Client_LogDataPDUs, Mode=TwoWay}"/>
+            </StackPanel>
+        </GroupBox>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="OK" Click="OkButton_Click" Width="80" Height="25" Margin="0,0,10,0" IsDefault="True"/>
+            <Button Content="Cancel" Click="CancelButton_Click" Width="80" Height="25" IsCancel="True"/>
         </StackPanel>
     </Grid>
 </Window>

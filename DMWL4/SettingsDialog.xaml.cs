@@ -22,6 +22,11 @@ namespace MWL4
         {
             InitializeComponent();
             LoadColumns();
+
+            // Logging options are copied into the dialog and only written back on OK,
+            // so that Cancel really discards the changes.
+            LogDimseDatasets.IsChecked = Settings.Default.Client_LogDimseDatasets;
+            LogDataPDUs.IsChecked = Settings.Default.Client_LogDataPDUs;
         }
 
         private void LoadColumns()
@@ -48,7 +53,7 @@ namespace MWL4
                 ("Requested Procedure Code Sequence", "RequestedProcedureCodeSequence", "(0032,1064)"),
                 ("Requested Procedure ID", "RequestedProcedureID", "(0040,1001)"),
                 ("Requested Procedure Priority", "RequestedProcedurePriority", "(0040,1003)"),
-                ("Reason for the Requested Procedure", "ReasonForRequestedProcedure", "(0040,2001)"),
+                ("Reason for the Requested Procedure", "ReasonForRequestedProcedure", "(0040,1002)"),
                 ("Order Entered By", "OrderEnteredBy", "(0040,2008)"),
                 ("Order Enterer Location", "OrderEntererLocation", "(0040,2009)"),
                 ("Imaging Service Request Comments", "ImagingServiceRequestComments", "(0040,2400)"),
@@ -64,6 +69,7 @@ namespace MWL4
                 ("Scheduled Procedure Step Location", "ScheduledProcedureStepLocation", "(0040,0011)"),
                 ("Pre-Medication", "PreMedication", "(0040,0012)"),
                 ("SPS Status", "ScheduledProcedureStepStatus", "(0040,0020)"),
+                ("Comments on the Scheduled Procedure Step", "CommentsOnScheduledProcedureStep", "(0040,0400)"),
 
                 ("Protocol Code Value", "ScheduledProtocolCodeValue", "(0008,0100)"),
                 ("Protocol Code Meaning", "ScheduledProtocolCodeMeaning", "(0008,0104)"),
@@ -101,6 +107,8 @@ namespace MWL4
                 .ToArray();
 
             Settings.Default.VisibleColumns = string.Join(";", visibleNames);
+            Settings.Default.Client_LogDimseDatasets = LogDimseDatasets.IsChecked == true;
+            Settings.Default.Client_LogDataPDUs = LogDataPDUs.IsChecked == true;
             Settings.Default.Save();
 
             DialogResult = true;

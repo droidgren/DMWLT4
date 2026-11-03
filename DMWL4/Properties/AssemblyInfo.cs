@@ -10,7 +10,7 @@ using System.Windows;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Västra Götalandsregionen")]
 [assembly: AssemblyProduct("MWL4")]
-[assembly: AssemblyCopyright("Copyright © Anders Dahlgren 2025")]
+[assembly: AssemblyCopyright("Copyright © Anders Dahlgren 2026")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -46,6 +46,6 @@ using System.Windows;
 //      Build Number
 //      Revision
 //
-[assembly: AssemblyVersion("1.1")]
-[assembly: AssemblyFileVersion("1.2")]
-[assembly: AssemblyInformationalVersion("1.2")]
+[assembly: AssemblyVersion("1.2.1")]
+[assembly: AssemblyFileVersion("1.2.1")]
+[assembly: AssemblyInformationalVersion("1.2.1")]

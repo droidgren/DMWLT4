@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows;
 using ILogger = Serilog.ILogger;
 
@@ -17,6 +18,7 @@ namespace MWL4
         protected override void OnStartup(StartupEventArgs e)
         {
             var serilogLogger = ConfigureLogging();
+            RegisterGlobalExceptionHandlers();
 
             var services = new ServiceCollection();
             services.AddLogging(logging =>
@@ -58,6 +60,33 @@ namespace MWL4
 
             Log.Logger = logger;
             return logger;
+        }
+
+        /// <summary>
+        /// Makes sure unexpected exceptions end up in the log instead of silently crashing the app.
+        /// </summary>
+        private void RegisterGlobalExceptionHandlers()
+        {
+            DispatcherUnhandledException += (s, args) =>
+            {
+                Log.Error(args.Exception, "Unhandled UI exception");
+                MessageBox.Show(
+                    "An unexpected error occurred:\n" + args.Exception.Message + "\n\nSee the log for details.",
+                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                args.Handled = true;
+            };
+
+            AppDomain.CurrentDomain.UnhandledException += (s, args) =>
+            {
+                Log.Fatal(args.ExceptionObject as Exception, "Unhandled exception (terminating: {terminating})", args.IsTerminating);
+                if (args.IsTerminating) Log.CloseAndFlush();
+            };
+
+            TaskScheduler.UnobservedTaskException += (s, args) =>
+            {
+                Log.Error(args.Exception, "Unobserved task exception");
+                args.SetObserved();
+            };
         }
 
         protected override void OnExit(ExitEventArgs e)

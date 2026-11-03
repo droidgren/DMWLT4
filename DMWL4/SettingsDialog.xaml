@@ -45,11 +45,9 @@
             <StackPanel Margin="5">
                 <CheckBox x:Name="LogDimseDatasets" 
                           Content="Log DIMSE Datasets"
-                          Margin="0,0,0,5"
-                          IsChecked="{Binding Source={x:Static p:Settings.Default}, Path=Client_LogDimseDatasets, Mode=TwoWay}"/>
-                <CheckBox x:Name="LogDataPDUs" 
-                          Content="Log Data PDUs"
-                          IsChecked="{Binding Source={x:Static p:Settings.Default}, Path=Client_LogDataPDUs, Mode=TwoWay}"/>
+                          Margin="0,0,0,5"/>
+                <CheckBox x:Name="LogDataPDUs"
+                          Content="Log Data PDUs"/>
             </StackPanel>
         </GroupBox>
 

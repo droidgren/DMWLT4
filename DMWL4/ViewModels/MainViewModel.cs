@@ -9,6 +9,7 @@ using Serilog;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -79,15 +80,33 @@ namespace MWL4.ViewModels
         private string _stationName;
         public string StationName { get => _stationName; set { _stationName = value; OnPropertyChanged(); } }
 
-        private DateTime _startDate = DateTime.Today;
-        public DateTime StartDate { get => _startDate; set { _startDate = value; OnPropertyChanged(); } }
+        // Nullable so that a cleared DatePicker means "no limit" instead of silently keeping the old date.
+        private DateTime? _startDate = DateTime.Today;
+        public DateTime? StartDate { get => _startDate; set { _startDate = value; OnPropertyChanged(); } }
 
-        private DateTime _endDate = DateTime.Today;
-        public DateTime EndDate { get => _endDate; set { _endDate = value; OnPropertyChanged(); } }
+        private DateTime? _endDate = DateTime.Today;
+        public DateTime? EndDate { get => _endDate; set { _endDate = value; OnPropertyChanged(); } }
         #endregion
 
         private string _statusText = "Ready";
         public string StatusText { get => _statusText; set { _statusText = value; OnPropertyChanged(); } }
+
+        // Result of the last operation (echo/ping/query warnings/errors). Kept separately so that
+        // UpdateStatusWithCounts (e.g. on selection change) does not erase it.
+        private string _statusSuffix = string.Empty;
+
+        private bool _isBusy;
+        public bool IsBusy
+        {
+            get => _isBusy;
+            private set
+            {
+                if (_isBusy == value) return;
+                _isBusy = value;
+                OnPropertyChanged();
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
 
         private int _selectedCount;
         public int SelectedCount
@@ -119,9 +138,11 @@ namespace MWL4.ViewModels
 
             LoadSettings();
 
-            DicomEchoCommand = new RelayCommand(async _ => await DoEchoAsync());
-            QueryCommand = new RelayCommand(async _ => await DoQueryAsync());
-            PingCommand = new RelayCommand(async _ => await DoPingAsync());
+            // Network commands are disabled while another network operation is running,
+            // otherwise e.g. a double-clicked Query runs two C-FINDs into the same result list.
+            DicomEchoCommand = new RelayCommand(async _ => await RunBusyAsync(DoEchoAsync), _ => !IsBusy);
+            QueryCommand = new RelayCommand(async _ => await RunBusyAsync(DoQueryAsync), _ => !IsBusy);
+            PingCommand = new RelayCommand(async _ => await RunBusyAsync(DoPingAsync), _ => !IsBusy);
             AboutCommand = new RelayCommand(_ => ShowAbout());
             ExitCommand = new RelayCommand(_ =>
             {
@@ -129,7 +150,7 @@ namespace MWL4.ViewModels
                 Application.Current?.Shutdown();
             });
 
-            ClearResultsCommand = new RelayCommand(_ => ClearResults());
+            ClearResultsCommand = new RelayCommand(_ => ClearResults(), _ => !IsBusy);
 
             SelectionChangedCommand = new RelayCommand(p =>
             {
@@ -149,6 +170,20 @@ namespace MWL4.ViewModels
                 }
                 SelectedCount = count;
             });
+        }
+
+        private async Task RunBusyAsync(Func<Task> action)
+        {
+            if (IsBusy) return;
+            IsBusy = true;
+            try
+            {
+                await action();
+            }
+            finally
+            {
+                IsBusy = false;
+            }
         }
 
         private void LoadSettings()
@@ -183,13 +218,29 @@ namespace MWL4.ViewModels
             dlg.ShowDialog();
         }
 
-        private async Task DoEchoAsync()
+        /// <summary>
+        /// Validates host (and optionally port) before a network operation. Shows a warning and returns false if invalid.
+        /// </summary>
+        private bool ValidateConnection(bool requirePort = true)
         {
             if (string.IsNullOrWhiteSpace(ServerHost))
             {
                 ShowMessage("Called host is empty.", MessageBoxImage.Warning);
-                return;
+                return false;
             }
+
+            if (requirePort && (ServerPort < 1 || ServerPort > 65535))
+            {
+                ShowMessage($"Port {ServerPort} is invalid. It must be between 1 and 65535.", MessageBoxImage.Warning);
+                return false;
+            }
+
+            return true;
+        }
+
+        private async Task DoEchoAsync()
+        {
+            if (!ValidateConnection()) return;
 
             StatusText = "Performing C-ECHO...";
             _logger.Information("C-ECHO -> {host}:{port}", ServerHost, ServerPort);
@@ -197,13 +248,35 @@ namespace MWL4.ViewModels
             try
             {
                 var client = CreateClient();
-                await client.AddRequestAsync(new DicomCEchoRequest());
-                await client.SendAsync();
+                var request = new DicomCEchoRequest();
+                DicomStatus echoStatus = null;
+                request.OnResponseReceived += (req, res) => echoStatus = res.Status;
 
-                _logger.Information("C-ECHO success");
-                ShowMessage($"Connection to {ServerHost} successful.", MessageBoxImage.Information);
-                StatusText = "Echo successful";
-                UpdateStatusWithCounts();
+                var sw = Stopwatch.StartNew();
+                await client.AddRequestAsync(request);
+                await client.SendAsync();
+                sw.Stop();
+
+                // SendAsync completing without an exception does not guarantee that a successful
+                // C-ECHO response was received, so check the actual response status.
+                if (echoStatus == null)
+                {
+                    _logger.Warning("C-ECHO: no response received");
+                    SetStatus("Echo failed: no response received.");
+                    ShowMessage($"No C-ECHO response received from {ServerHost}.", MessageBoxImage.Warning);
+                }
+                else if (echoStatus != DicomStatus.Success)
+                {
+                    _logger.Warning("C-ECHO returned status {status}", echoStatus);
+                    SetStatus($"Echo failed: {echoStatus}.");
+                    ShowMessage($"C-ECHO to {ServerHost} returned status:\n{echoStatus}", MessageBoxImage.Warning);
+                }
+                else
+                {
+                    _logger.Information("C-ECHO success in {ms} ms", sw.ElapsedMilliseconds);
+                    SetStatus($"Echo successful ({sw.ElapsedMilliseconds} ms).");
+                    ShowMessage($"Connection to {ServerHost} successful.\nTime: {sw.ElapsedMilliseconds} ms", MessageBoxImage.Information);
+                }
             }
             catch (Exception ex)
             {
@@ -213,11 +286,7 @@ namespace MWL4.ViewModels
 
         private async Task DoPingAsync()
         {
-            if (string.IsNullOrWhiteSpace(ServerHost))
-            {
-                ShowMessage("Called host is empty.", MessageBoxImage.Warning);
-                return;
-            }
+            if (!ValidateConnection(requirePort: false)) return;
 
             StatusText = $"Pinging {ServerHost}...";
             try
@@ -227,15 +296,13 @@ namespace MWL4.ViewModels
                     var reply = await p.SendPingAsync(ServerHost, 4000);
                     if (reply.Status == IPStatus.Success)
                     {
+                        SetStatus($"Ping successful ({reply.RoundtripTime} ms).");
                         ShowMessage($"Ping Success.\nTime: {reply.RoundtripTime}ms", MessageBoxImage.Information, "Ping Result");
-                        StatusText = "Ping successful";
-                        UpdateStatusWithCounts();
                     }
                     else
                     {
+                        SetStatus($"Ping failed: {reply.Status}.");
                         ShowMessage($"Ping Failed: {reply.Status}", MessageBoxImage.Warning, "Ping Result");
-                        StatusText = "Ping failed";
-                        UpdateStatusWithCounts();
                     }
                 }
             }
@@ -247,8 +314,17 @@ namespace MWL4.ViewModels
 
         private async Task DoQueryAsync()
         {
+            if (!ValidateConnection()) return;
+
+            if (StartDate.HasValue && EndDate.HasValue && StartDate.Value.Date > EndDate.Value.Date)
+            {
+                ShowMessage("Start date is after end date.", MessageBoxImage.Warning);
+                return;
+            }
+
             WorklistResults.Clear();
             SelectedCount = 0;
+            _statusSuffix = string.Empty;
             StatusText = "Querying Worklist...";
 
             try
@@ -305,21 +381,22 @@ namespace MWL4.ViewModels
                     "Query completed. Results: {count}, pending responses: {pending} (of which FF01/warning: {warnings}), mapping errors: {errors}, final status: {status}",
                     WorklistResults.Count, pendingResponses, pendingWarnings, mappingErrors, finalStatus?.ToString() ?? "<none>");
 
-                UpdateStatusWithCounts();
-
+                var suffix = string.Empty;
                 if (finalStatus == null)
                 {
-                    StatusText += " Warning: no final response received from server (timeout or aborted association) - results may be incomplete.";
+                    suffix += " Warning: no final response received from server (timeout or aborted association) - results may be incomplete.";
                 }
                 else if (finalStatus.State != DicomState.Success)
                 {
-                    StatusText += $" Warning: server ended query with status {finalStatus} - results may be incomplete.";
+                    suffix += $" Warning: server ended query with status {finalStatus} - results may be incomplete.";
                 }
 
                 if (mappingErrors > 0)
                 {
-                    StatusText += $" {mappingErrors} response(s) could not be read, see log.";
+                    suffix += $" {mappingErrors} response(s) could not be read, see log.";
                 }
+
+                SetStatus(suffix.Trim());
             }
             catch (Exception ex)
             {
@@ -331,21 +408,28 @@ namespace MWL4.ViewModels
         {
             WorklistResults.Clear();
             SelectedCount = 0;
-            StatusText = "Cleared results.";
+            SetStatus("Results cleared.");
+        }
+
+        /// <summary>Sets the result text of the last operation and refreshes the status bar.</summary>
+        private void SetStatus(string suffix)
+        {
+            _statusSuffix = suffix ?? string.Empty;
             UpdateStatusWithCounts();
         }
 
         private void UpdateStatusWithCounts()
         {
-            var baseText = $"Found {WorklistResults.Count} items.";
+            var text = $"Found {WorklistResults.Count} items.";
             if (SelectedCount > 0)
             {
-                StatusText = $"{baseText} {SelectedCount} selected.";
+                text += $" {SelectedCount} selected.";
             }
-            else
+            if (!string.IsNullOrEmpty(_statusSuffix))
             {
-                StatusText = baseText;
+                text += " " + _statusSuffix;
             }
+            StatusText = text;
         }
 
         private WorklistItem MapDatasetToWorklistItem(DicomDataset ds)
@@ -371,7 +455,7 @@ namespace MWL4.ViewModels
                 AdmissionID = ds.GetStringSafe(DicomTag.AdmissionID),
                 CurrentPatientLocation = ds.GetStringSafe(DicomTag.CurrentPatientLocation),
 
-                RequestingPhysician = ds.GetStringSafe(DicomTag.RequestingPhysician), // New
+                RequestingPhysician = ds.GetStringSafe(DicomTag.RequestingPhysician),
                 RequestedProcedureID = ds.GetStringSafe(DicomTag.RequestedProcedureID),
                 RequestedProcedureDescription = ds.GetStringSafe(DicomTag.RequestedProcedureDescription),
                 RequestedProcedurePriority = ds.GetStringSafe(DicomTag.RequestedProcedurePriority),
@@ -395,40 +479,89 @@ namespace MWL4.ViewModels
                 ScheduledProcedureStepLocation = ds.GetStringSafe(DicomTag.ScheduledProcedureStepLocation, spsSeq),
                 PreMedication = ds.GetStringSafe(DicomTag.PreMedication, spsSeq),
                 ScheduledPerformingPhysicianName = ds.GetStringSafe(DicomTag.ScheduledPerformingPhysicianName, spsSeq),
+                CommentsOnScheduledProcedureStep = ds.GetStringSafe(DicomTag.CommentsOnTheScheduledProcedureStep, spsSeq),
                 ScheduledProtocolCodeValue = ds.GetNestedStringSafe(spsSeq, protoSeq, DicomTag.CodeValue),
                 ScheduledProtocolCodeMeaning = ds.GetNestedStringSafe(spsSeq, protoSeq, DicomTag.CodeMeaning),
                 ScheduledProtocolCodeScheme = ds.GetNestedStringSafe(spsSeq, protoSeq, DicomTag.CodingSchemeDesignator)
             };
         }
 
+        /// <summary>
+        /// Builds the patient name matching key. Appends a trailing '*' for "starts with" matching
+        /// unless the user already supplied their own wildcards.
+        /// </summary>
+        private static string BuildPatientNameKey(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+            var trimmed = input.Trim();
+            return trimmed.IndexOfAny(new[] { '*', '?' }) >= 0 ? trimmed : trimmed + "*";
+        }
+
+        /// <summary>
+        /// Builds a DICOM DA range. Empty dates mean an open-ended range; both empty means any date.
+        /// </summary>
+        private static string BuildDateRange(DateTime? start, DateTime? end)
+        {
+            if (!start.HasValue && !end.HasValue) return string.Empty;
+            var s = start.HasValue ? start.Value.ToString("yyyyMMdd") : string.Empty;
+            var e = end.HasValue ? end.Value.ToString("yyyyMMdd") : string.Empty;
+            return $"{s}-{e}";
+        }
+
+        /// <summary>
+        /// Returns the Specific Character Set needed to send the given query values, or null if all are ASCII.
+        /// Latin-1 (ISO_IR 100) covers e.g. Swedish å/ä/ö and is the most widely supported; anything outside
+        /// Latin-1 falls back to UTF-8 (ISO_IR 192).
+        /// </summary>
+        private static string DetectCharacterSet(params string[] values)
+        {
+            var chars = values.Where(v => !string.IsNullOrEmpty(v)).SelectMany(v => v).ToArray();
+            if (chars.All(c => c < 0x80)) return null;
+            return chars.All(c => c <= 0xFF) ? "ISO_IR 100" : "ISO_IR 192";
+        }
+
         private DicomCFindRequest BuildCFindRequest()
         {
-            var ds = new DicomDataset
+            var patientName = BuildPatientNameKey(PatientName);
+            var patientId = PatientID?.Trim() ?? string.Empty;
+            // Modality is VR CS which only allows upper case characters.
+            var modality = Modality?.Trim().ToUpperInvariant() ?? string.Empty;
+            var stationAet = StationAET?.Trim() ?? string.Empty;
+            var stationName = StationName?.Trim() ?? string.Empty;
+
+            var ds = new DicomDataset();
+
+            // Specific Character Set must be added before the text elements so that they are encoded with it.
+            var charset = DetectCharacterSet(patientName, patientId, stationName);
+            if (charset != null)
             {
-                { DicomTag.PatientName, string.IsNullOrWhiteSpace(PatientName) ? string.Empty : PatientName.Trim() + "*" },
-                { DicomTag.PatientID, PatientID?.Trim() ?? string.Empty },
-                { DicomTag.PatientSex, string.Empty },
-                { DicomTag.PatientBirthDate, string.Empty },
-                { DicomTag.PatientAge, string.Empty },
-                { DicomTag.PatientSize, string.Empty },
-                { DicomTag.PatientWeight, string.Empty },
-                { DicomTag.MedicalAlerts, string.Empty },
-                { DicomTag.Allergies, string.Empty },
+                ds.Add(DicomTag.SpecificCharacterSet, charset);
+                _logger.Debug("Query contains non-ASCII characters, using Specific Character Set {charset}", charset);
+            }
 
-                { DicomTag.AccessionNumber, string.Empty },
-                { DicomTag.AdmissionID, string.Empty },
-                { DicomTag.CurrentPatientLocation, string.Empty },
-                { DicomTag.StudyInstanceUID, string.Empty },
+            ds.Add(DicomTag.PatientName, patientName);
+            ds.Add(DicomTag.PatientID, patientId);
+            ds.Add(DicomTag.PatientSex, string.Empty);
+            ds.Add(DicomTag.PatientBirthDate, string.Empty);
+            ds.Add(DicomTag.PatientAge, string.Empty);
+            ds.Add(DicomTag.PatientSize, string.Empty);
+            ds.Add(DicomTag.PatientWeight, string.Empty);
+            ds.Add(DicomTag.MedicalAlerts, string.Empty);
+            ds.Add(DicomTag.Allergies, string.Empty);
 
-                { DicomTag.RequestingPhysician, string.Empty }, // New
-                { DicomTag.RequestedProcedureDescription, string.Empty },
-                { DicomTag.RequestedProcedureID, string.Empty },
-                { DicomTag.RequestedProcedurePriority, string.Empty },
-                { DicomTag.ReasonForTheRequestedProcedure, string.Empty },
-                { DicomTag.OrderEnteredBy, string.Empty },
-                { DicomTag.OrderEntererLocation, string.Empty },
-                { DicomTag.ImagingServiceRequestComments, string.Empty }
-            };
+            ds.Add(DicomTag.AccessionNumber, string.Empty);
+            ds.Add(DicomTag.AdmissionID, string.Empty);
+            ds.Add(DicomTag.CurrentPatientLocation, string.Empty);
+            ds.Add(DicomTag.StudyInstanceUID, string.Empty);
+
+            ds.Add(DicomTag.RequestingPhysician, string.Empty);
+            ds.Add(DicomTag.RequestedProcedureDescription, string.Empty);
+            ds.Add(DicomTag.RequestedProcedureID, string.Empty);
+            ds.Add(DicomTag.RequestedProcedurePriority, string.Empty);
+            ds.Add(DicomTag.ReasonForTheRequestedProcedure, string.Empty);
+            ds.Add(DicomTag.OrderEnteredBy, string.Empty);
+            ds.Add(DicomTag.OrderEntererLocation, string.Empty);
+            ds.Add(DicomTag.ImagingServiceRequestComments, string.Empty);
 
             // Add Requested Procedure Code Sequence (Return Key)
             var reqProcCodeItem = new DicomDataset
@@ -439,21 +572,20 @@ namespace MWL4.ViewModels
             };
             ds.Add(new DicomSequence(DicomTag.RequestedProcedureCodeSequence, reqProcCodeItem));
 
-            var sps = new DicomDataset
-            {
-                { DicomTag.Modality, Modality?.Trim() ?? string.Empty },
-                { DicomTag.ScheduledStationAETitle, StationAET?.Trim() ?? string.Empty },
-                { DicomTag.ScheduledStationName, StationName?.Trim() ?? string.Empty },
-                { DicomTag.ScheduledProcedureStepStartDate, $"{StartDate:yyyyMMdd}-{EndDate:yyyyMMdd}" },
-                { DicomTag.ScheduledProcedureStepID, string.Empty },
-                { DicomTag.ScheduledProcedureStepStartTime, string.Empty },
-                { DicomTag.ScheduledProcedureStepDescription, string.Empty },
-                { DicomTag.ScheduledProcedureStepStatus, string.Empty },
-                { DicomTag.ScheduledProcedureStepLocation, string.Empty },
-                { DicomTag.PreMedication, string.Empty },
-                { DicomTag.ScheduledPerformingPhysicianName, string.Empty },
-                { DicomTag.CommentsOnTheScheduledProcedureStep, string.Empty }
-            };
+            // Sequence items inherit the Specific Character Set from the parent dataset when written.
+            var sps = new DicomDataset();
+            sps.Add(DicomTag.Modality, modality);
+            sps.Add(DicomTag.ScheduledStationAETitle, stationAet);
+            sps.Add(DicomTag.ScheduledStationName, stationName);
+            sps.Add(DicomTag.ScheduledProcedureStepStartDate, BuildDateRange(StartDate, EndDate));
+            sps.Add(DicomTag.ScheduledProcedureStepID, string.Empty);
+            sps.Add(DicomTag.ScheduledProcedureStepStartTime, string.Empty);
+            sps.Add(DicomTag.ScheduledProcedureStepDescription, string.Empty);
+            sps.Add(DicomTag.ScheduledProcedureStepStatus, string.Empty);
+            sps.Add(DicomTag.ScheduledProcedureStepLocation, string.Empty);
+            sps.Add(DicomTag.PreMedication, string.Empty);
+            sps.Add(DicomTag.ScheduledPerformingPhysicianName, string.Empty);
+            sps.Add(DicomTag.CommentsOnTheScheduledProcedureStep, string.Empty);
 
             var protoItem = new DicomDataset
             {
@@ -478,12 +610,47 @@ namespace MWL4.ViewModels
         private void HandleError(string context, Exception ex)
         {
             _logger.Error(ex, context);
-            StatusText = $"{context}: {ex.Message}";
-            ShowMessage($"{context}:\n{ex.Message}", MessageBoxImage.Error);
+            var message = GetUserMessage(ex);
+            SetStatus($"{context}: {message}");
+            ShowMessage($"{context}:\n{message}", MessageBoxImage.Error);
         }
 
-        private void ShowMessage(string message, MessageBoxImage icon, string title = "Information")
+        /// <summary>
+        /// Returns the message of the exception that actually caused the error. fo-dicom wraps e.g. a refused
+        /// connection in an AggregateException whose own message is only "One or more errors occurred".
+        /// </summary>
+        private static string GetUserMessage(Exception ex)
         {
+            while (true)
+            {
+                if (ex is AggregateException agg)
+                {
+                    var flat = agg.Flatten();
+                    if (flat.InnerExceptions.Count == 1)
+                    {
+                        ex = flat.InnerExceptions[0];
+                        continue;
+                    }
+                    if (flat.InnerExceptions.Count > 1)
+                    {
+                        return string.Join("\n", flat.InnerExceptions.Select(GetUserMessage).Distinct());
+                    }
+                }
+                return ex.Message;
+            }
+        }
+
+        private void ShowMessage(string message, MessageBoxImage icon, string title = null)
+        {
+            if (title == null)
+            {
+                switch (icon)
+                {
+                    case MessageBoxImage.Error: title = "Error"; break;
+                    case MessageBoxImage.Warning: title = "Warning"; break;
+                    default: title = "Information"; break;
+                }
+            }
             MessageBox.Show(message, title, MessageBoxButton.OK, icon);
         }
     }

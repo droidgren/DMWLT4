@@ -33,7 +33,7 @@
 
         <StackPanel Margin="264,0,0,20" Grid.Row="3" Grid.RowSpan="2" VerticalAlignment="Bottom" HorizontalAlignment="Left">
             <TextBlock Text="{Binding Company}" d:Text="Vastra Gotalandsregionen" HorizontalAlignment="Center"/>
-            <TextBlock HorizontalAlignment="Center" Text="{Binding Copyright}" d:Text="Copyright Anders Dahlgren 2025"/>
+            <TextBlock HorizontalAlignment="Center" Text="{Binding Copyright}" d:Text="Copyright Anders Dahlgren 2026"/>
         </StackPanel>
 
         <Button Grid.Row="5" Content="OK" Width="75" Height="23" HorizontalAlignment="Center" VerticalAlignment="Bottom" Click="Ok_Click" IsDefault="true" IsCancel="true" Margin="0,15,0,0"/>

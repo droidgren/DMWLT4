@@ -39,6 +39,7 @@ namespace MWL4.Models
         public string ScheduledProcedureStepLocation { get; set; }
         public string PreMedication { get; set; }
         public string ScheduledPerformingPhysicianName { get; set; }
+        public string CommentsOnScheduledProcedureStep { get; set; } // (0040,0400)
         public string ScheduledProtocolCodeValue { get; set; }
         public string ScheduledProtocolCodeMeaning { get; set; }
         public string ScheduledProtocolCodeScheme { get; set; }

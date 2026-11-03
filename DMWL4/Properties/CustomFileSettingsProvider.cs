@@ -1,3 +1,4 @@
+using Serilog;
 using System;
 using System.Collections.Specialized;
 using System.Configuration;
@@ -38,9 +39,10 @@ namespace MWL4.Properties
                 {
                     doc = XDocument.Load(UserConfigPath);
                 }
-                catch
+                catch (Exception ex)
                 {
                     // If file is corrupt, we'll just use defaults
+                    Log.Warning(ex, "Could not read settings file {path}, using default settings", UserConfigPath);
                 }
             }
 
@@ -88,8 +90,9 @@ namespace MWL4.Properties
                 {
                     doc = XDocument.Load(UserConfigPath);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Log.Warning(ex, "Could not read existing settings file {path}, it will be overwritten", UserConfigPath);
                     doc = new XDocument(new XElement("Settings"));
                 }
             }
@@ -123,8 +126,18 @@ namespace MWL4.Properties
                 element.Value = propValue.SerializedValue?.ToString() ?? string.Empty;
             }
 
-            // 4. Save
-            doc.Save(UserConfigPath);
+            // 4. Save to a temp file first and then swap it in, so that a crash or full disk
+            //    during the write cannot leave a truncated user.config behind.
+            var tempPath = UserConfigPath + ".tmp";
+            doc.Save(tempPath);
+            if (File.Exists(UserConfigPath))
+            {
+                File.Replace(tempPath, UserConfigPath, null);
+            }
+            else
+            {
+                File.Move(tempPath, UserConfigPath);
+            }
         }
     }
 }

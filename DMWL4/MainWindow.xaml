@@ -112,10 +112,10 @@
                     <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding StationName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Height="17.96" Margin="0,0,0,4"/>
 
                     <Label Content="Start Date:" Grid.Row="5"/>
-                    <DatePicker Grid.Row="5" Grid.Column="1" SelectedDate="{Binding StartDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                    <DatePicker Grid.Row="5" Grid.Column="1" SelectedDate="{Binding StartDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" ToolTip="Leave empty for no lower limit"/>
 
                     <Label Content="End Date:" Grid.Row="6"/>
-                    <DatePicker Grid.Row="6" Grid.Column="1" SelectedDate="{Binding EndDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                    <DatePicker Grid.Row="6" Grid.Column="1" SelectedDate="{Binding EndDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" ToolTip="Leave empty for no upper limit"/>
 
                     <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
                         <Button Content="Clear" Command="{Binding ClearResultsCommand}" Width="100" VerticalAlignment="Bottom" HorizontalAlignment="Right" />
@@ -129,7 +129,8 @@
                           ItemsSource="{Binding WorklistResults}"
                           AutoGenerateColumns="False"
                           CanUserAddRows="False"
-                          IsReadOnly="False"
+                          CanUserDeleteRows="False"
+                          IsReadOnly="True"
                           Margin="8"
                           ColumnWidth="Auto"
                           ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -282,6 +283,11 @@
                         <DataGridTextColumn Binding="{Binding ScheduledPerformingPhysicianName}">
                             <DataGridTextColumn.Header>
                                 <TextBlock Text="Performing Physician" ToolTip="(0040,0006) Scheduled Performing Physician Name" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding CommentsOnScheduledProcedureStep}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="SPS Comments" ToolTip="(0040,0400) Comments on the Scheduled Procedure Step" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding StudyInstanceUID}">

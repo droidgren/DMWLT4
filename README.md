@@ -1,6 +1,6 @@
 # <img src="icon.jfif" width="48" height="48" alt="App Icon" style="vertical-align: middle;"> DICOM Modality Worklist Tester
 
-![Version](https://img.shields.io/badge/version-1.1-blue)
+![Version](https://img.shields.io/badge/version-1.2.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![.NET Framework](https://img.shields.io/badge/.NET-4.8-purple)
@@ -16,6 +16,7 @@ Built on the robust **Fellow Oak DICOM (fo-dicom)** library, this tool provides 
 * [Requirements](#requirements)
 * [Installation](#installation)
 * [Usage](#usage)
+* [Changelog](#changelog)
 * [Reporting Bugs & Feature Requests](#reporting-bugs--feature-requests)
 * [License](#license)
 * [Acknowledgments](#acknowledgments)
@@ -57,14 +58,13 @@ The application handles the following DICOM tags. You can configure which of the
 | `RequestingPhysician` | (0032,1032) | Requesting Physician |
 | `RequestedProcedureDescription` | (0032,1060) | Requested Procedure Description |
 | `RequestedProcedureCodeSequence` | (0032,1064) | Requested Procedure Code Sequence |
-| `ExamDescription` | (0032,1030) | Study Description / Exam Description |
 | `AdmissionID` | (0038,0010) | Admission ID |
 | `CurrentPatientLocation` | (0038,0300) | Current Patient Location |
 | `ScheduledStationAET` | (0040,0001) | Scheduled Station AE Title |
 | `ScheduledDate` | (0040,0002) | Scheduled Procedure Step Start Date |
 | `ScheduledTime` | (0040,0003) | Scheduled Procedure Step Start Time |
 | `ScheduledPerformingPhysicianName`| (0040,0006) | Scheduled Performing Physician's Name |
-| `ScheduledProcedureStepDescription` | (0040,0007) | Scheduled Procedure Step Description |
+| `ExamDescription` | (0040,0007) | Scheduled Procedure Step Description (Exam Description) |
 | `ScheduledProtocolCodeValue` | (0040,0008) | > (0008,0100) Code Value |
 | `ScheduledProtocolCodeMeaning` | (0040,0008) | > (0008,0104) Code Meaning |
 | `ScheduledProtocolCodeScheme` | (0040,0008) | > (0008,0102) Coding Scheme Designator |
@@ -73,6 +73,7 @@ The application handles the following DICOM tags. You can configure which of the
 | `ScheduledProcedureStepLocation` | (0040,0011) | Scheduled Procedure Step Location |
 | `PreMedication` | (0040,0012) | Pre-Medication |
 | `ScheduledProcedureStepStatus` | (0040,0020) | Scheduled Procedure Step Status |
+| `CommentsOnScheduledProcedureStep` | (0040,0400) | Comments on the Scheduled Procedure Step |
 | `RequestedProcedureID` | (0040,1001) | Requested Procedure ID |
 | `ReasonForRequestedProcedure` | (0040,1002) | Reason for Requested Procedure |
 | `RequestedProcedurePriority` | (0040,1003) | Requested Procedure Priority |
@@ -115,6 +116,36 @@ This is a standard warning for unsigned software and does not indicate a securit
 3. **Test Connection:** Use the **Ping** or **DICOM Echo** buttons to verify network visibility.
 4. **Query:** Enter search criteria (e.g., Modality, Date, or Patient Name) and execute the query.
 5. **Review:** Check the results list. You can customize visible columns via **File -> Settings**.
+
+## Changelog
+
+### 1.2.1
+
+**Fixes**
+* Worklist results returned with status FF01 (Pending – optional keys not supported) are no longer dropped. A warning is shown if the query does not end with Success.
+* Multi-valued attributes are now shown instead of being left empty.
+* Query, Echo, Ping and Clear are disabled while a request is running, so a double-click or a second Enter no longer starts two queries into the same results table.
+* Patient names with non-ASCII characters (e.g. "Åström") are now sent with the correct Specific Character Set (0008,0005) and match as expected.
+* DICOM Echo now checks the response status and only reports success if the SCP returns Success. The round-trip time is shown.
+* A cleared date picker now means an open date range, and a start date after the end date gives a warning instead of an empty result.
+* Modality is converted to uppercase, so "ct" works the same as "CT".
+* Typing your own `*` or `?` in Patient Name no longer produces a double wildcard (`DOE**`).
+* Query checks for an empty host and a port outside 1–65535 before connecting.
+* Status messages (e.g. "Echo successful", "results may be incomplete") stay visible after selecting a row.
+* Cancel in the Settings dialog now discards changes to the logging options.
+* Corrected the tag number shown for Reason for the Requested Procedure (0040,1002).
+* The results table is now read-only, and rows can no longer be deleted with the Delete key.
+* A corrupt settings file is now logged instead of silently resetting all settings, and settings are saved safely through a temporary file.
+* Unexpected errors are now written to the log before the application closes.
+* Connection errors now show the actual cause (e.g. connection refused) instead of "One or more errors occurred".
+* Warning and error message boxes are now titled "Warning" and "Error" instead of always "Information".
+* Corrected the DICOM tag table in this README.
+
+**New**
+* New result column: SPS Comments (0040,0400).
+
+**Updated**
+* fo-dicom 5.2.6, Serilog 4.4.0, Microsoft.Extensions 10.0.14 and other NuGet packages updated to their latest versions.
 
 ##  Reporting Bugs & Feature Requests
 

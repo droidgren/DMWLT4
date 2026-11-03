@@ -256,20 +256,70 @@ namespace MWL4.ViewModels
                 var request = BuildCFindRequest();
                 var client = CreateClient();
 
+                DicomStatus finalStatus = null;
+                var pendingResponses = 0;
+                var pendingWarnings = 0;
+                var mappingErrors = 0;
+
                 request.OnResponseReceived += (req, res) =>
                 {
-                    if (res.HasDataset && res.Status == DicomStatus.Pending)
+                    // Every match is sent with a Pending *state*, but the status code may be either
+                    // FF00 (Pending) or FF01 (Pending - one or more optional keys not supported).
+                    // DicomStatus == compares the code, so comparing against DicomStatus.Pending
+                    // silently dropped all FF01 matches. Compare the state instead.
+                    if (res.Status.State == DicomState.Pending)
                     {
-                        var item = MapDatasetToWorklistItem(res.Dataset);
-                        Application.Current?.Dispatcher?.Invoke(() => WorklistResults.Add(item));
+                        pendingResponses++;
+                        if (res.Status != DicomStatus.Pending)
+                        {
+                            pendingWarnings++;
+                        }
+
+                        if (!res.HasDataset)
+                        {
+                            _logger.Warning("Pending C-FIND response without dataset (status {status})", res.Status);
+                            return;
+                        }
+
+                        try
+                        {
+                            var item = MapDatasetToWorklistItem(res.Dataset);
+                            Application.Current?.Dispatcher?.Invoke(() => WorklistResults.Add(item));
+                        }
+                        catch (Exception ex)
+                        {
+                            mappingErrors++;
+                            _logger.Error(ex, "Failed to map C-FIND response dataset to worklist item");
+                        }
+                    }
+                    else
+                    {
+                        finalStatus = res.Status;
                     }
                 };
 
                 await client.AddRequestAsync(request);
                 await client.SendAsync();
 
+                _logger.Information(
+                    "Query completed. Results: {count}, pending responses: {pending} (of which FF01/warning: {warnings}), mapping errors: {errors}, final status: {status}",
+                    WorklistResults.Count, pendingResponses, pendingWarnings, mappingErrors, finalStatus?.ToString() ?? "<none>");
+
                 UpdateStatusWithCounts();
-                _logger.Information("Query completed. Results: {count}", WorklistResults.Count);
+
+                if (finalStatus == null)
+                {
+                    StatusText += " Warning: no final response received from server (timeout or aborted association) - results may be incomplete.";
+                }
+                else if (finalStatus.State != DicomState.Success)
+                {
+                    StatusText += $" Warning: server ended query with status {finalStatus} - results may be incomplete.";
+                }
+
+                if (mappingErrors > 0)
+                {
+                    StatusText += $" {mappingErrors} response(s) could not be read, see log.";
+                }
             }
             catch (Exception ex)
             {

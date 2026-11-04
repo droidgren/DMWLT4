@@ -40,8 +40,19 @@ Built on the robust **Fellow Oak DICOM (fo-dicom)** library, this tool provides 
 * **Open Source:** Free to use, modify, and distribute under the MIT License.
 
 ## Screenshots
-![Application Screenshot](/screenshots/main.jpg)
-![Application Settings](/screenshots/settings.jpg)
+
+**Main window** — results of a worklist query, with a saved connection profile and an additional query key (SPS Status):
+
+![Main window with query results](/screenshots/main.jpg)
+
+**Dataset details** — double-click a row to see the full dataset returned by the server:
+
+![Dataset details window](/screenshots/details.jpg)
+
+**Settings** — choose the result columns and the additional query keys:
+
+![Settings, Result Columns tab](/screenshots/settings.jpg)
+![Settings, Query tab](/screenshots/settings-query.jpg)
 
 ##  Supported DICOM Tags
 
@@ -96,17 +107,21 @@ The application handles the following DICOM tags. You can configure which of the
 
 ## Installation
 
-You can choose between the Windows Installer or the Portable version.
+You can choose between the Windows Installer or the Portable version. Neither requires administrative privileges.
 
-### Option 1: Portable (Recommended - does not require administrative privileges)
-1. Download the **ZIP file** from the [latest release](../../releases/latest).
-2. Extract the files to a folder of your choice.
-3. Run `DMWLT4.exe`.
-
-### Option 2: Installer
+### Option 1: Installer
 1. Download the **MSI Installer** from the [latest release](../../releases/latest).
 2. Double-click the file to install the application.
 3. Launch **DICOM Modality Worklist Tester** from your Start Menu.
+
+The installer installs for the current user only, by default to `%LOCALAPPDATA%\DICOM Modality Worklist Tester`, and does not ask for administrator rights.
+
+> **Upgrading from 1.2 or earlier:** older installers installed for all users in Program Files. The new per-user installer cannot remove those, so uninstall the old version first (**Settings -> Apps -> Installed apps**). Removing the old version may require administrator rights.
+
+### Option 2: Portable
+1. Download the **ZIP file** from the [latest release](../../releases/latest).
+2. Extract the files to a folder of your choice.
+3. Run `DMWLT4.exe`.
 
 ### ⚠️ Microsoft SmartScreen Warning
 Because this is an open-source tool and is not digitally signed with a paid certificate, you may see a **"Windows protected your PC"** warning (Microsoft Defender SmartScreen) when you try to run the application for the first time.

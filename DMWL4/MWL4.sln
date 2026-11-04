@@ -5,7 +5,7 @@ VisualStudioVersion = 17.14.36623.8
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MWL4", "MWL4.csproj", "{A3DE8EB7-C80F-4F34-BCDC-253F646C7FE1}"
 EndProject
-Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "DMWL4", "..\..\..\MSI\DMWL4\DMWL4.vdproj", "{FBE87749-4DFE-E910-3ACA-BD3C8AA86AAD}"
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "DMWL4", "..\..\..\..\MSI\DMWL4\DMWL4.vdproj", "{FBE87749-4DFE-E910-3ACA-BD3C8AA86AAD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -1,0 +1,320 @@
+<Window x:Class="MWL4.HelpWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="DMWLT Help"
+        Height="650"
+        Width="900"
+        MinHeight="300"
+        MinWidth="500"
+        WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <Style x:Key="H1" TargetType="Paragraph">
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,18,0,6"/>
+            <Setter Property="Foreground" Value="#FF1F3A5F"/>
+        </Style>
+        <Style x:Key="H2" TargetType="Paragraph">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,12,0,4"/>
+        </Style>
+        <Style x:Key="Note" TargetType="Paragraph">
+            <Setter Property="Background" Value="#FFF3F6FA"/>
+            <Setter Property="BorderBrush" Value="#FFB8C7DA"/>
+            <Setter Property="BorderThickness" Value="3,0,0,0"/>
+            <Setter Property="Padding" Value="8,4"/>
+        </Style>
+        <Style TargetType="List">
+            <Setter Property="Margin" Value="0,4,0,8"/>
+            <Setter Property="Padding" Value="20,0,0,0"/>
+        </Style>
+        <Style TargetType="Table">
+            <Setter Property="CellSpacing" Value="0"/>
+            <Setter Property="BorderBrush" Value="#FFD0D7E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,4,0,8"/>
+        </Style>
+        <Style TargetType="TableCell">
+            <Setter Property="BorderBrush" Value="#FFD0D7E0"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="6,3"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <ListBox x:Name="TopicList" Grid.Column="0" BorderThickness="0" Background="#FFF5F7FA" Padding="0,8"
+                 SelectionChanged="TopicList_SelectionChanged">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Padding" Value="12,6"/>
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
+
+        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="#FFE1E6EC"/>
+
+        <FlowDocumentScrollViewer x:Name="Viewer" Grid.Column="2" IsToolBarVisible="False"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <FlowDocument x:Name="HelpDocument" FontFamily="Segoe UI" FontSize="13" PagePadding="24,8,24,24"
+                          TextAlignment="Left" LineHeight="20">
+
+                <!-- ===================================================================== -->
+                <Section Tag="Getting started">
+                    <Paragraph Style="{StaticResource H1}">Getting started</Paragraph>
+                    <Paragraph>
+                        DICOM Modality Worklist Tester (DMWLT) acts as a modality. It sends worklist queries
+                        (Modality Worklist C-FIND) to a RIS or PACS and shows what comes back. Use it to check that
+                        a worklist server is reachable, that it returns the expected exams, and how it fills in
+                        each DICOM attribute.
+                    </Paragraph>
+                    <Paragraph Style="{StaticResource H2}">A first query in five steps</Paragraph>
+                    <List MarkerStyle="Decimal">
+                        <ListItem><Paragraph>Under <Bold>Local</Bold>, enter the <Bold>Calling AET</Bold>: the AE title the server knows this "modality" by.</Paragraph></ListItem>
+                        <ListItem><Paragraph>Under <Bold>Server</Bold>, enter the worklist server's <Bold>AET</Bold>, <Bold>IP/Hostname</Bold> and <Bold>Port</Bold>.</Paragraph></ListItem>
+                        <ListItem><Paragraph>Click <Bold>Dicom Echo</Bold> to check that the server accepts the connection.</Paragraph></ListItem>
+                        <ListItem><Paragraph>Under <Bold>Query</Bold>, enter search criteria, or keep the default (today's date only).</Paragraph></ListItem>
+                        <ListItem><Paragraph>Click <Bold>Query</Bold> or press <Bold>Enter</Bold>. The matching exams appear in <Bold>Results</Bold>.</Paragraph></ListItem>
+                    </List>
+                    <Paragraph Style="{StaticResource Note}">
+                        The connection settings are remembered between sessions. To keep several servers, save
+                        them as connection profiles (see <Italic>Connection profiles</Italic>).
+                    </Paragraph>
+                </Section>
+
+                <!-- ===================================================================== -->
+                <Section Tag="Connection">
+                    <Paragraph Style="{StaticResource H1}">Connection</Paragraph>
+                    <Table>
+                        <Table.Columns>
+                            <TableColumn Width="140"/>
+                            <TableColumn/>
+                        </Table.Columns>
+                        <TableRowGroup>
+                            <TableRow><TableCell><Paragraph><Bold>Calling AET</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Your AE title (max 16 characters). Many servers only answer AE titles they have been configured for.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>AET</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>The called AE title of the worklist server.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>IP/Hostname</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Address of the server.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Port</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>DICOM port of the server, 1–65535. 104 and 11112 are common.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Use TLS</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Encrypt the connection. See <Italic>TLS (secure connections)</Italic>.</Paragraph></TableCell></TableRow>
+                        </TableRowGroup>
+                    </Table>
+                    <Paragraph Style="{StaticResource H2}">Testing the connection</Paragraph>
+                    <List>
+                        <ListItem><Paragraph><Bold>Ping</Bold> checks that the host answers on the network (ICMP). Some networks block ping, so a failed ping does not have to mean that DICOM fails.</Paragraph></ListItem>
+                        <ListItem><Paragraph><Bold>Dicom Echo</Bold> sends a C-ECHO. It succeeds only if the server accepts the association and answers with status Success. The round-trip time is shown.</Paragraph></ListItem>
+                    </List>
+                </Section>
+
+                <!-- ===================================================================== -->
+                <Section Tag="Connection profiles">
+                    <Paragraph Style="{StaticResource H1}">Connection profiles</Paragraph>
+                    <Paragraph>
+                        A profile stores the Calling AET, the server AET, host, port and the TLS options under a
+                        name, so you can switch between servers (for example test and production) with one click.
+                    </Paragraph>
+                    <List>
+                        <ListItem><Paragraph><Bold>Save:</Bold> type a name in the <Bold>Profile</Bold> box and click <Bold>Save</Bold>. If a profile with that name already exists, it is updated.</Paragraph></ListItem>
+                        <ListItem><Paragraph><Bold>Use:</Bold> pick a profile in the list. Its values are copied into the connection fields.</Paragraph></ListItem>
+                        <ListItem><Paragraph><Bold>Delete:</Bold> pick or type the profile name and click <Bold>Delete</Bold>. You are asked to confirm.</Paragraph></ListItem>
+                    </List>
+                    <Paragraph Style="{StaticResource Note}">
+                        Changing a field after loading a profile does not change the profile. Click <Bold>Save</Bold> again to store the change.
+                    </Paragraph>
+                </Section>
+
+                <!-- ===================================================================== -->
+                <Section Tag="TLS (secure connections)">
+                    <Paragraph Style="{StaticResource H1}">TLS (secure connections)</Paragraph>
+                    <Paragraph>
+                        Check <Bold>Use TLS</Bold> to connect with TLS. The server must listen for TLS on the given
+                        port (often a different port than the unencrypted one, e.g. 2762). Click
+                        <Bold>TLS options...</Bold> for these settings:
+                    </Paragraph>
+                    <List>
+                        <ListItem><Paragraph><Bold>Accept self-signed or invalid server certificates.</Bold> Normally the server's certificate must be trusted by Windows and match the host name. Test servers often use self-signed certificates; check this option to connect anyway. Use it only for testing, because the server's identity is then not verified.</Paragraph></ListItem>
+                        <ListItem><Paragraph><Bold>Client certificate.</Bold> Some servers require the modality to identify itself with a certificate. Click <Bold>Select...</Bold> to pick one from your personal certificate store (Current User → Personal). Only certificates with a private key are listed. <Bold>Clear</Bold> removes it.</Paragraph></ListItem>
+                    </List>
+                    <Paragraph Style="{StaticResource Note}">
+                        To use a certificate from a .pfx file, first import it into your personal store
+                        (double-click the file, or use <Italic>certmgr.msc</Italic>), then select it here.
+                    </Paragraph>
+                </Section>
+
+                <!-- ===================================================================== -->
+                <Section Tag="Querying the worklist">
+                    <Paragraph Style="{StaticResource H1}">Querying the worklist</Paragraph>
+                    <Paragraph>All fields are optional. Empty fields match everything.</Paragraph>
+                    <Table>
+                        <Table.Columns>
+                            <TableColumn Width="140"/>
+                            <TableColumn/>
+                        </Table.Columns>
+                        <TableRowGroup>
+                            <TableRow><TableCell><Paragraph><Bold>Name</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Patient's Name (0010,0010). A trailing <Bold>*</Bold> is added, so "DOE" finds every name that starts with DOE. If you type your own <Bold>*</Bold> (any characters) or <Bold>?</Bold> (one character), the text is sent unchanged. DICOM names use ^ between parts, e.g. DOE^JOHN.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Patient ID</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Patient ID (0010,0020), sent as typed.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Modality</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Modality (0008,0060), e.g. CT, MR, US. Converted to upper case.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Station AET</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Scheduled Station AE Title (0040,0001).</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Station Name</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Scheduled Station Name (0040,0010).</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Start / End Date</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Range for the Scheduled Procedure Step Start Date (0040,0002). Clear a date for an open range (no lower or upper limit); clear both to match any date. The start date must not be after the end date.</Paragraph></TableCell></TableRow>
+                        </TableRowGroup>
+                    </Table>
+                    <Paragraph>
+                        How exactly a server matches (case sensitivity, wildcards in other fields) depends on the
+                        server. DMWLT sends what you type and shows what the server returns.
+                    </Paragraph>
+                    <Paragraph Style="{StaticResource H2}">Buttons</Paragraph>
+                    <List>
+                        <ListItem><Paragraph><Bold>Query</Bold> (or Enter) clears the results and sends a new query.</Paragraph></ListItem>
+                        <ListItem><Paragraph><Bold>Cancel</Bold> stops a running query or echo by aborting the association. Rows received so far are kept.</Paragraph></ListItem>
+                        <ListItem><Paragraph><Bold>Clear</Bold> empties the results table.</Paragraph></ListItem>
+                    </List>
+                    <Paragraph Style="{StaticResource H2}">Names with å, ä, ö and other special characters</Paragraph>
+                    <Paragraph>
+                        With the default setting (<Italic>Auto</Italic>), a query that contains non-ASCII characters
+                        is sent with Specific Character Set (0008,0005) ISO_IR 100 (Latin-1), or ISO_IR 192 (UTF-8) if
+                        Latin-1 is not enough. If the server expects a specific character set, choose it in
+                        <Bold>File → Settings → Query</Bold>.
+                    </Paragraph>
+                </Section>
+
+                <!-- ===================================================================== -->
+                <Section Tag="Working with results">
+                    <Paragraph Style="{StaticResource H1}">Working with results</Paragraph>
+                    <Paragraph Style="{StaticResource H2}">Columns</Paragraph>
+                    <List>
+                        <ListItem><Paragraph>Choose which attributes are shown in <Bold>File → Settings → Result Table Columns</Bold>. Hover over a column header to see its DICOM tag.</Paragraph></ListItem>
+                        <ListItem><Paragraph>Drag a column header to move the column, and drag the edge of a header to change its width. Click a header to sort.</Paragraph></ListItem>
+                        <ListItem><Paragraph>Order and widths are saved when you exit. <Bold>Reset to default</Bold> in Settings restores the default columns, order and widths.</Paragraph></ListItem>
+                    </List>
+                    <Paragraph Style="{StaticResource H2}">Filtering</Paragraph>
+                    <Paragraph>
+                        The filter bar is hidden by default. Turn on <Bold>File → View Filter Results</Bold> (Ctrl+F)
+                        to show it above the table. Type text to show only rows where one of the <Italic>visible</Italic> columns
+                        contains it (not case sensitive). The filter works on the rows already received; it does
+                        not send a new query. The status bar shows how many rows are shown. Click
+                        <Bold>✕</Bold> to clear the filter. Hiding the filter bar also clears the filter.
+                    </Paragraph>
+                    <Paragraph Style="{StaticResource H2}">Row details</Paragraph>
+                    <Paragraph>
+                        Double-click a row to see everything the server returned for that exam as a tree:
+                        every attribute with tag, VR, name and value, including sequences such as the Scheduled
+                        Procedure Step Sequence, and private or unknown tags. <Bold>Copy as text</Bold> copies the
+                        whole dataset to the clipboard, e.g. to paste into a support case.
+                    </Paragraph>
+                    <Paragraph Style="{StaticResource H2}">Status bar</Paragraph>
+                    <List>
+                        <ListItem><Paragraph>Left: number of rows found, shown and selected, and the result of the last operation (warnings, errors, echo time).</Paragraph></ListItem>
+                        <ListItem><Paragraph>Right: statistics of the last query, e.g. <Italic>Last query: 245 ms · 3 responses (1 × FF01) · final: Success [0000]</Italic>.</Paragraph></ListItem>
+                    </List>
+                </Section>
+
+                <!-- ===================================================================== -->
+                <Section Tag="Settings">
+                    <Paragraph Style="{StaticResource H1}">Settings</Paragraph>
+                    <Paragraph>Open <Bold>File → Settings</Bold>. Changes are applied with <Bold>OK</Bold>; <Bold>Cancel</Bold> discards them.</Paragraph>
+                    <Table>
+                        <Table.Columns>
+                            <TableColumn Width="190"/>
+                            <TableColumn/>
+                        </Table.Columns>
+                        <TableRowGroup>
+                            <TableRow><TableCell><Paragraph><Bold>Result Table Columns</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Which attributes are shown in the results. <Bold>Reset to default</Bold> restores the default selection and the original column order and widths.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Connection timeout</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>How long to wait for the TCP connection (default 10 s).</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Association timeout</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>How long to wait for the server to accept or reject the association (default 10 s).</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Response (DIMSE) timeout</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>How long to wait for the next response to an echo or query (default 30 s, 0 = no limit). The time starts again after each worklist item received, so long worklists are not cut off as long as items keep arriving.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Specific Character Set</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Auto (only when needed), or always ISO_IR 100 (Latin-1) or ISO_IR 192 (UTF-8).</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Log DIMSE Datasets</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Write every request and response dataset to the log. Useful when you need to see exactly what was sent.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Log Data PDUs</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Write the low-level network messages to the log. Produces a lot of output.</Paragraph></TableCell></TableRow>
+                        </TableRowGroup>
+                    </Table>
+                    <Paragraph>
+                        Settings and profiles are stored in <Italic>%LocalAppData%\DMWLT4\user.config</Italic>.
+                    </Paragraph>
+                </Section>
+
+                <!-- ===================================================================== -->
+                <Section Tag="Troubleshooting">
+                    <Paragraph Style="{StaticResource H1}">Troubleshooting</Paragraph>
+                    <Table>
+                        <Table.Columns>
+                            <TableColumn Width="230"/>
+                            <TableColumn/>
+                        </Table.Columns>
+                        <TableRowGroup>
+                            <TableRow><TableCell><Paragraph><Bold>Connection refused / could not connect</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Wrong host or port, the service is not running, or a firewall blocks the port. Try Ping, then check the port.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Association rejected</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>The server does not accept your Calling AET or the called AET is wrong. Check both AE titles and the server's list of allowed modalities.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>…not accepted within N s / no response within N s (timed out)</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>The server did not answer in time. Results may be incomplete. Increase the timeouts in Settings if the server is slow.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Results may be incomplete</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>The server ended the query with a status other than Success, or no final response arrived. The status is shown in the message and in the statistics.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>FF01 in the statistics</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>The server marked items as "Pending – one or more optional keys not supported". The items are shown; some requested attributes may simply be empty.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Remote certificate is invalid</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>The server's TLS certificate is not trusted or does not match the host name. Install the CA certificate, or for testing check <Italic>Accept self-signed or invalid server certificates</Italic> in TLS options.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>No results, but the exam exists</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Check the date range (by default only today), Modality and Station AET. Clear all fields to see everything the server returns for your AE title.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Wrong special characters (Ã¥ instead of å)</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>The server and DMWLT disagree on the character set. Check the Character Set column and try another Specific Character Set in Settings.</Paragraph></TableCell></TableRow>
+                        </TableRowGroup>
+                    </Table>
+                    <Paragraph Style="{StaticResource H2}">Logs</Paragraph>
+                    <Paragraph>
+                        <Bold>File → Open log directory</Bold> opens the folder with the log files
+                        (<Italic>%LocalAppData%\DMWLT4\Logs</Italic>). A new file is started each day and the last
+                        7 days are kept. Turn on <Italic>Log DIMSE Datasets</Italic> in Settings to include the full
+                        requests and responses. Attach the log when you report a problem.
+                    </Paragraph>
+                </Section>
+
+                <!-- ===================================================================== -->
+                <Section Tag="Keyboard shortcuts">
+                    <Paragraph Style="{StaticResource H1}">Keyboard shortcuts</Paragraph>
+                    <Table>
+                        <Table.Columns>
+                            <TableColumn Width="140"/>
+                            <TableColumn/>
+                        </Table.Columns>
+                        <TableRowGroup>
+                            <TableRow><TableCell><Paragraph><Bold>Enter</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Run the query.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Ctrl+F</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Show or hide the filter bar (View Filter Results).</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>F1</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Open this help.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Ctrl+C</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Copy the selected result rows (tab separated, e.g. for Excel).</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Esc</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Close a dialog without saving.</Paragraph></TableCell></TableRow>
+                        </TableRowGroup>
+                    </Table>
+                </Section>
+            </FlowDocument>
+        </FlowDocumentScrollViewer>
+    </Grid>
+</Window>

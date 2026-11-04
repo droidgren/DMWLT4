@@ -4,6 +4,7 @@ using FellowOakDicom;
 using FellowOakDicom.Network;
 using Microsoft.Extensions.Logging;
 using MWL4;
+using MWL4.Infrastructure;
 using MWL4.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -12,6 +13,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -26,6 +29,7 @@ static class Scp
     public static DicomStatus EchoStatus = DicomStatus.Success;
     public static DicomStatus FinalFindStatus = DicomStatus.Success;
     public static int ResponseDelayMs = 0;
+    public static int EchoDelayMs = 0;
     public static readonly List<DicomDataset> FindRequests = new List<DicomDataset>();
     public static int EchoCount;
     public static string Today = DateTime.Today.ToString("yyyyMMdd");
@@ -100,10 +104,11 @@ public class MockScp : DicomService, IDicomServiceProvider, IDicomCFindProvider,
     public void OnReceiveAbort(DicomAbortSource source, DicomAbortReason reason) { }
     public void OnConnectionClosed(Exception exception) { }
 
-    public Task<DicomCEchoResponse> OnCEchoRequestAsync(DicomCEchoRequest request)
+    public async Task<DicomCEchoResponse> OnCEchoRequestAsync(DicomCEchoRequest request)
     {
         Interlocked.Increment(ref Scp.EchoCount);
-        return Task.FromResult(new DicomCEchoResponse(request, Scp.EchoStatus));
+        if (Scp.EchoDelayMs > 0) await Task.Delay(Scp.EchoDelayMs);
+        return new DicomCEchoResponse(request, Scp.EchoStatus);
     }
 
     public async IAsyncEnumerable<DicomCFindResponse> OnCFindRequestAsync(DicomCFindRequest request)
@@ -178,6 +183,7 @@ static class Program
 {
     const int Port = 41112;
     const int ClosedPort = 41113;
+    const int TlsPort = 41114;
     static int _pass, _fail;
 
     static void Check(string name, bool ok, string detail = "")
@@ -207,8 +213,23 @@ static class Program
         ds.GetSequence(DicomTag.ScheduledProcedureStepSequence).Items[0].TryGetString(tag, out var s) ? s ?? "" : "";
     static string Str(DicomDataset ds, DicomTag tag) => ds.TryGetString(tag, out var s) ? s ?? "" : "";
 
+    static ApplicationSettingsBase _settings;
+
     static async Task RunTests()
     {
+        var settingsType = typeof(MainViewModel).Assembly.GetType("DMWLT4.Properties.Settings");
+        var settings = (ApplicationSettingsBase)settingsType.GetProperty("Default", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic).GetValue(null);
+        _settings = settings;
+        // Run with known values instead of whatever the user has configured. Settings are only changed in memory.
+        settings["CharacterSet"] = "Auto";
+        settings["ConnectionTimeoutSeconds"] = 10;
+        settings["AssociationTimeoutSeconds"] = 10;
+        settings["ResponseTimeoutSeconds"] = 30;
+        settings["VisibleColumns"] = SettingsDialog.DefaultVisibleColumns;
+        settings["TlsIgnoreCertErrors"] = false;
+        settings["TlsClientCertThumbprint"] = "";
+        settings["ShowFilterBar"] = true;
+
         var vm = new MainViewModel
         {
             ServerHost = "127.0.0.1",
@@ -216,6 +237,8 @@ static class Program
             ServerAET = "MOCKSCP",
             CallingAET = "TESTSCU",
             UseTLS = false,
+            TlsIgnoreCertErrors = false,
+            TlsClientCertThumbprint = "",
             StartDate = null,
             EndDate = null,
         };
@@ -342,8 +365,6 @@ static class Program
         vm.ServerPort = Port;
 
         Console.WriteLine("\n11. Settings dialog Cancel discards logging changes");
-        var settingsType = typeof(MainViewModel).Assembly.GetType("DMWLT4.Properties.Settings");
-        var settings = (ApplicationSettingsBase)settingsType.GetProperty("Default", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic).GetValue(null);
         var dimseBefore = (bool)settings["Client_LogDimseDatasets"];
         var pduBefore = (bool)settings["Client_LogDataPDUs"];
         bool toggledInDialog = false;
@@ -369,6 +390,373 @@ static class Program
         Check("Reopened dialog shows original values",
               ((CheckBox)dlg2.FindName("LogDimseDatasets")).IsChecked == dimseBefore && ((CheckBox)dlg2.FindName("LogDataPDUs")).IsChecked == pduBefore);
         dlg2.Close();
+
+        await RunFeatureTests(vm, settings);
+    }
+
+    static int ViewCount(MainViewModel vm) => vm.ResultsView.Cast<object>().Count();
+
+    static async Task RunFeatureTests(MainViewModel vm, ApplicationSettingsBase settings)
+    {
+        Console.WriteLine("\n12. Cancel");
+        Scp.ResponseDelayMs = 1000;
+        MessageBoxes.Take();
+        vm.QueryCommand.Execute(null);
+        await Task.Delay(300);
+        var cancelEnabledWhileBusy = vm.CancelCommand.CanExecute(null);
+        var sw = Stopwatch.StartNew();
+        vm.CancelCommand.Execute(null);
+        while (vm.IsBusy && sw.Elapsed < TimeSpan.FromSeconds(30)) await Task.Delay(20);
+        var cancelMs = sw.ElapsedMilliseconds;
+        await Task.Delay(300);
+        var msgs = MessageBoxes.Take();
+        Scp.ResponseDelayMs = 0;
+        Check("Cancel is enabled while a query runs", cancelEnabledWhileBusy);
+        Check("Query stops soon after Cancel", cancelMs < 1500, $"{cancelMs} ms");
+        Check("Status says the query was cancelled", vm.StatusText.Contains("Query cancelled"), vm.StatusText);
+        Check("No error box after Cancel", msgs.Count == 0, string.Join("; ", msgs));
+        Check("Statistics show 'cancelled'", vm.QueryStats.Contains("cancelled"), vm.QueryStats);
+        Check("Cancel is disabled when idle", !vm.CancelCommand.CanExecute(null));
+        Check("Query enabled again after Cancel", vm.QueryCommand.CanExecute(null));
+
+        Console.WriteLine("\n13. Response timeout");
+        settings["ResponseTimeoutSeconds"] = 1;
+        Scp.ResponseDelayMs = 3000;
+        sw.Restart();
+        await Run(vm, vm.QueryCommand);
+        var timeoutMs = sw.ElapsedMilliseconds;
+        Scp.ResponseDelayMs = 0;
+        Check("Timed-out query warns 'timed out'", vm.StatusText.Contains("no response within 1 s (timed out)"), vm.StatusText);
+        Check("Timed-out query returns before the server answers (< 3 s)", timeoutMs < 3000, $"{timeoutMs} ms");
+        Check("Statistics show 'timed out'", vm.QueryStats.Contains("timed out"), vm.QueryStats);
+        Scp.ResponseDelayMs = 700; // responses keep coming within the timeout -> no timeout
+        await Run(vm, vm.QueryCommand);
+        Scp.ResponseDelayMs = 0;
+        Check("Timer restarts on each response (3 × 0.7 s with 1 s timeout)", vm.WorklistResults.Count == 3 && !vm.StatusText.Contains("timed out"), vm.StatusText);
+        Scp.EchoDelayMs = 3000;
+        sw.Restart();
+        msgs = await Run(vm, vm.DicomEchoCommand);
+        var echoTimeoutMs = sw.ElapsedMilliseconds;
+        Scp.EchoDelayMs = 0;
+        Check("Timed-out echo reports failure", vm.StatusText.Contains("Echo failed: no response within 1 s (timed out)")
+              && msgs.Any(m => m.StartsWith("[Warning]") && m.Contains("timed out")), vm.StatusText + " " + string.Join("; ", msgs));
+        Check("Timed-out echo returns before the server answers (< 3 s)", echoTimeoutMs < 3000, $"{echoTimeoutMs} ms");
+        settings["ResponseTimeoutSeconds"] = 30;
+
+        Console.WriteLine("\n14. Query statistics");
+        await Run(vm, vm.QueryCommand);
+        Check("Statistics show 3 responses", vm.QueryStats.Contains("3 responses"), vm.QueryStats);
+        Check("Statistics show 1 FF01 response", vm.QueryStats.Contains("(1 × FF01)"), vm.QueryStats);
+        Check("Statistics show final status code [0000]", vm.QueryStats.Contains("[0000]"), vm.QueryStats);
+        Check("Statistics show elapsed time", Regex.IsMatch(vm.QueryStats, @"Last query: \d+ ms"), vm.QueryStats);
+
+        Console.WriteLine("\n15. Character set option");
+        var astrom = vm.WorklistResults.FirstOrDefault(r => r.PatientID == "1");
+        Check("Response Specific Character Set is shown (ISO_IR 100)", astrom?.SpecificCharacterSet == "ISO_IR 100", astrom?.SpecificCharacterSet);
+        var smith = vm.WorklistResults.FirstOrDefault(r => r.PatientID == "3");
+        Check("Response without (0008,0005) gives empty Character Set", smith != null && smith.SpecificCharacterSet == "", smith?.SpecificCharacterSet);
+        settings["CharacterSet"] = "ISO_IR 192";
+        vm.PatientName = "Smith";
+        await Run(vm, vm.QueryCommand);
+        Check("Fixed ISO_IR 192 is sent for an ASCII query", Str(LastFind(), DicomTag.SpecificCharacterSet) == "ISO_IR 192", Str(LastFind(), DicomTag.SpecificCharacterSet));
+        Check("Query with ISO_IR 192 still matches", vm.WorklistResults.Count == 1, $"{vm.WorklistResults.Count} rows");
+        settings["CharacterSet"] = "ISO_IR 100";
+        vm.PatientName = "Åström";
+        await Run(vm, vm.QueryCommand);
+        Check("Fixed ISO_IR 100 is sent", Str(LastFind(), DicomTag.SpecificCharacterSet) == "ISO_IR 100");
+        Check("Åström matches with ISO_IR 100", vm.WorklistResults.Count == 1, $"{vm.WorklistResults.Count} rows");
+        settings["CharacterSet"] = "Auto";
+        vm.PatientName = "Smith";
+        await Run(vm, vm.QueryCommand);
+        Check("Auto sends no character set for ASCII", !LastFind().Contains(DicomTag.SpecificCharacterSet));
+        vm.PatientName = "";
+
+        Console.WriteLine("\n16. Row details (dataset tree)");
+        await Run(vm, vm.QueryCommand);
+        var item = vm.WorklistResults.FirstOrDefault(r => r.PatientID == "1");
+        Check("Worklist item keeps the returned dataset", item?.Dataset != null);
+        var nodes = DatasetNode.Build(item?.Dataset);
+        var spsNode = nodes.FirstOrDefault(n => n.Text.StartsWith("(0040,0100) SQ"));
+        Check("Tree has the SPS sequence node", spsNode != null, string.Join(" | ", nodes.Select(n => n.Text)));
+        Check("Sequence node shows item count", spsNode?.Text.Contains("[1 item(s)]") == true, spsNode?.Text);
+        var item1 = spsNode?.Children.FirstOrDefault();
+        Check("Sequence has 'Item 1' child", item1?.Text == "Item 1", item1?.Text);
+        Check("Item contains Modality = CT", item1?.Children.Any(c => c.Text == "(0008,0060) CS  Modality = CT") == true,
+              string.Join(" | ", item1?.Children.Select(c => c.Text) ?? Enumerable.Empty<string>()));
+        Check("Patient name element is decoded (Åström^Anna)", nodes.Any(n => n.Text == "(0010,0010) PN  Patient's Name = Åström^Anna"),
+              nodes.FirstOrDefault(n => n.Text.StartsWith("(0010,0010)"))?.Text);
+        var text = DatasetNode.ToText(nodes);
+        Check("Text dump indents sequence items", text.Contains("\n  Item 1") && text.Contains("\n    (0008,0060)"));
+        var priv = new DicomDataset();
+        priv.Add(new DicomLongString(new DicomTag(0x0011, 0x0010), "ACME"));
+        priv.Add(new DicomUnknown(new DicomTag(0x0011, 0x1001), new byte[] { 1, 2, 3, 4 }));
+        priv.Add(new DicomOtherByte(DicomTag.PixelData, new byte[] { 1, 2 }));
+        var privNodes = DatasetNode.Build(priv);
+        Check("Private/unknown and binary tags are listed", privNodes.Count == 3 && privNodes.Any(n => n.Text.Contains("(0011,1001) UN") && n.Text.Contains("<4 bytes>"))
+              && privNodes.Any(n => n.Text.Contains("(7FE0,0010) OB") && n.Text.Contains("<2 bytes>")),
+              string.Join(" | ", privNodes.Select(n => n.Text)));
+        Check("Details window opens for a row", TryOpenDetails(item));
+
+        Console.WriteLine("\n17. Grid filter");
+        vm.RefreshFilter();
+        Check("No filter shows all 3 rows", ViewCount(vm) == 3, $"{ViewCount(vm)} rows");
+        vm.FilterText = "smith";
+        Check("Filter 'smith' shows 1 row (case insensitive)", ViewCount(vm) == 1, $"{ViewCount(vm)} rows");
+        Check("Status shows '1 shown.'", vm.StatusText.Contains("Found 3 items. 1 shown."), vm.StatusText);
+        vm.FilterText = "contrast"; // only in SPS Comments, which is hidden by default
+        Check("Filter ignores hidden columns", ViewCount(vm) == 0, $"{ViewCount(vm)} rows");
+        settings["VisibleColumns"] = SettingsDialog.DefaultVisibleColumns + ";CommentsOnScheduledProcedureStep";
+        vm.RefreshFilter();
+        Check("Filter matches after the column is made visible", ViewCount(vm) == 1, $"{ViewCount(vm)} rows");
+        settings["VisibleColumns"] = SettingsDialog.DefaultVisibleColumns;
+        vm.ClearFilterCommand.Execute(null);
+        Check("Clearing the filter shows all rows", ViewCount(vm) == 3 && vm.FilterText == "" && !vm.StatusText.Contains("shown"), vm.StatusText);
+        vm.FilterText = "MR";
+        await Run(vm, vm.QueryCommand);
+        Check("Filter applies to rows of a new query", ViewCount(vm) == 1 && vm.WorklistResults.Count == 3, $"{ViewCount(vm)} of {vm.WorklistResults.Count}");
+        vm.FilterText = "";
+
+        Console.WriteLine("\n18. Connection profiles");
+        var profilesBefore = (string)settings["ConnectionProfiles"];
+        vm.Confirm = _ => true;
+        const string name = "__MwlTest profile";
+        vm.ProfileName = name;
+        vm.SaveProfileCommand.Execute(null);
+        var countAfterSave = vm.Profiles.Count;
+        var saved = vm.Profiles.FirstOrDefault(p => p.Name == name);
+        Check("Profile saved", saved != null && saved.ServerHost == "127.0.0.1" && saved.ServerPort == Port && saved.ServerAET == "MOCKSCP");
+        Check("Profile is stored in the setting", ((string)settings["ConnectionProfiles"]).Contains(name));
+        var roundTrip = MWL4.Models.ConnectionProfile.Deserialize((string)settings["ConnectionProfiles"]).FirstOrDefault(p => p.Name == name);
+        Check("Profile setting round-trips", roundTrip != null && roundTrip.ServerHost == "127.0.0.1" && roundTrip.ServerPort == Port && roundTrip.CallingAET == "TESTSCU");
+        vm.ProfileName = name.ToUpperInvariant();
+        vm.SaveProfileCommand.Execute(null);
+        Check("Saving the same name again overwrites (no duplicate)", vm.Profiles.Count == countAfterSave, $"{vm.Profiles.Count} profiles");
+        vm.ServerHost = "other.example";
+        vm.ServerPort = 1234;
+        vm.SelectedProfile = null;
+        vm.SelectedProfile = vm.Profiles.First(p => p.Name == name);
+        Check("Selecting the profile restores host and port", vm.ServerHost == "127.0.0.1" && vm.ServerPort == Port, $"{vm.ServerHost}:{vm.ServerPort}");
+        Check("Selecting a profile updates the stored setting too", (string)settings["ServerHost"] == "127.0.0.1");
+        vm.ProfileName = name;
+        Check("Delete is enabled for an existing name", vm.DeleteProfileCommand.CanExecute(null));
+        vm.DeleteProfileCommand.Execute(null);
+        Check("Profile deleted", vm.Profiles.All(p => p.Name != name) && !((string)settings["ConnectionProfiles"]).Contains(name));
+        Check("Delete is disabled for an unknown name", !vm.DeleteProfileCommand.CanExecute(null));
+        Check("Broken profile XML is ignored", SafeDeserialize("<not xml"));
+        settings["ConnectionProfiles"] = profilesBefore;
+
+        Console.WriteLine("\n19. TLS");
+        await RunTlsTests(vm);
+
+        Console.WriteLine("\n20. Settings dialog: Reset to default and timeouts");
+        settings["VisibleColumns"] = "PatientName";
+        var visibleBefore = (string)settings["VisibleColumns"];
+        HashSet<string> checkedAfterReset = null;
+        bool resetFlag = false;
+        var dlg = new SettingsDialog();
+        dlg.Loaded += (s, e) =>
+        {
+            var grid = (DataGrid)dlg.FindName("ColumnsGrid");
+            var cols = (List<SettingsDialog.ColumnSetting>)grid.ItemsSource;
+            foreach (var c in cols) c.IsVisible = false;
+            FindButton(dlg, "Reset to default").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            checkedAfterReset = new HashSet<string>(cols.Where(c => c.IsVisible).Select(c => c.BoundProperty));
+            resetFlag = dlg.ColumnLayoutReset;
+            var cancel = FindButton(dlg, "Cancel");
+            dlg.Dispatcher.BeginInvoke(new Action(() => cancel.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent))));
+        };
+        dlg.ShowDialog();
+        var defaults = new HashSet<string>(SettingsDialog.DefaultVisibleColumns.Split(';'));
+        Check("Reset checks exactly the default columns", checkedAfterReset != null && checkedAfterReset.SetEquals(defaults),
+              checkedAfterReset == null ? "null" : string.Join(";", checkedAfterReset));
+        Check("Reset sets ColumnLayoutReset", resetFlag);
+        Check("Cancel after Reset keeps the stored columns", (string)settings["VisibleColumns"] == visibleBefore, (string)settings["VisibleColumns"]);
+        settings["VisibleColumns"] = SettingsDialog.DefaultVisibleColumns;
+
+        var dlg3 = new SettingsDialog();
+        Check("Dialog shows the timeout settings", ((TextBox)dlg3.FindName("ResponseTimeoutBox")).Text == "30"
+              && ((TextBox)dlg3.FindName("ConnectionTimeoutBox")).Text == "10");
+        Check("Dialog shows the character set setting", (string)((ComboBox)dlg3.FindName("CharacterSetBox")).SelectedValue == "Auto");
+        ((TextBox)dlg3.FindName("ResponseTimeoutBox")).Text = "abc";
+        MessageBoxes.Take();
+        var okClicked = false;
+        dlg3.Loaded += (s, e) =>
+        {
+            FindButton(dlg3, "OK").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent)); // invalid -> warning, stays open
+            okClicked = true;
+            var cancel = FindButton(dlg3, "Cancel");
+            dlg3.Dispatcher.BeginInvoke(new Action(() => cancel.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent))));
+        };
+        var res3 = dlg3.ShowDialog();
+        await Task.Delay(300);
+        msgs = MessageBoxes.Take();
+        Check("Invalid timeout is rejected on OK", okClicked && res3 == false && msgs.Any(m => m.Contains("Response timeout must be")), string.Join("; ", msgs));
+        Check("Invalid timeout is not stored", (int)settings["ResponseTimeoutSeconds"] == 30);
+
+        Console.WriteLine("\n21. Column layout");
+        var dg = new DataGrid();
+        foreach (var p in new[] { "A", "B", "C", "D" })
+            dg.Columns.Add(new DataGridTextColumn { Binding = new System.Windows.Data.Binding(p), Width = DataGridLength.Auto });
+        var original = dg.Columns.ToList();
+        var host = new Window { Content = dg, Width = 400, Height = 200, ShowInTaskbar = false, WindowStyle = WindowStyle.None, Left = -2000 };
+        host.Show();
+        dg.Columns[2].DisplayIndex = 0;          // C first
+        dg.Columns[1].Width = new DataGridLength(123); // B resized
+        var layout = ColumnLayout.Save(dg.Columns);
+        Check("Layout is saved with order and width", layout == "A=1,;B=2,123;C=0,;D=3,", layout);
+        ColumnLayout.Reset(original);
+        Check("Reset restores original order and Auto width",
+              dg.Columns.Select(c => c.DisplayIndex).SequenceEqual(new[] { 0, 1, 2, 3 }) && dg.Columns.All(c => c.Width.IsAuto));
+        ColumnLayout.Apply(dg.Columns, original, layout);
+        Check("Apply restores order", dg.Columns[2].DisplayIndex == 0 && dg.Columns[0].DisplayIndex == 1 && dg.Columns[3].DisplayIndex == 3,
+              string.Join(",", dg.Columns.Select(c => c.DisplayIndex)));
+        Check("Apply restores width", dg.Columns[1].Width.IsAbsolute && dg.Columns[1].Width.Value == 123);
+        ColumnLayout.Reset(original);
+        ColumnLayout.Apply(dg.Columns, original, "D=0,;B=1,;Removed=2,50"); // A, C missing (e.g. new columns)
+        Check("Columns missing from the layout go last in XAML order",
+              string.Join("", dg.Columns.OrderBy(c => c.DisplayIndex).Select(c => ColumnLayout.GetBoundProperty(c))) == "DBAC",
+              string.Join("", dg.Columns.OrderBy(c => c.DisplayIndex).Select(c => ColumnLayout.GetBoundProperty(c))));
+        ColumnLayout.Apply(dg.Columns, original, "garbage;;x=y,z");
+        Check("Garbage layout is ignored", true);
+        host.Close();
+
+        Console.WriteLine("\n22. View Filter Results (filter bar toggle)");
+        await Run(vm, vm.QueryCommand);
+        Check("Filter bar is hidden by default (setting default False)",
+              (string)settings.Properties["ShowFilterBar"].DefaultValue == "False");
+        settings["ShowFilterBar"] = false;
+        Check("A new window starts with the filter bar hidden when the setting is off", !new MainViewModel().IsFilterBarVisible);
+        vm.IsFilterBarVisible = false;
+        vm.IsFilterBarVisible = true;
+        Check("View Filter Results shows the filter bar and stores it", vm.IsFilterBarVisible && (bool)settings["ShowFilterBar"]);
+        vm.FilterText = "smith";
+        vm.IsFilterBarVisible = false;
+        Check("Hiding the filter bar clears the filter", vm.FilterText == "" && ViewCount(vm) == 3, $"'{vm.FilterText}', {ViewCount(vm)} rows");
+        Check("Hidden state is stored in the setting", (bool)settings["ShowFilterBar"] == false);
+        vm.ToggleFilterBarCommand.Execute(null);
+        Check("Toggle command shows the filter bar again", vm.IsFilterBarVisible && (bool)settings["ShowFilterBar"]);
+        vm.ToggleFilterBarCommand.Execute(null);
+        Check("Toggle command hides it", !vm.IsFilterBarVisible);
+        vm.IsFilterBarVisible = true;
+
+        Console.WriteLine("\n23. Help");
+        vm.HelpCommand.Execute(null);
+        vm.HelpCommand.Execute(null);
+        await Task.Delay(300);
+        var helpWindows = Application.Current.Windows.OfType<HelpWindow>().ToList();
+        Check("Help opens one window (second F1 activates it)", helpWindows.Count == 1, $"{helpWindows.Count} windows");
+        var help = helpWindows.FirstOrDefault();
+        if (help != null)
+        {
+            help.Left = -3000;
+            var titles = help.Topics.Select(t => t.Title).ToList();
+            Check("Help has all topics", titles.SequenceEqual(new[] { "Getting started", "Connection", "Connection profiles",
+                  "TLS (secure connections)", "Querying the worklist", "Working with results", "Settings", "Troubleshooting", "Keyboard shortcuts" }),
+                  string.Join(", ", titles));
+            var sv = FindVisualChild<System.Windows.Controls.ScrollViewer>((DependencyObject)help.FindName("Viewer"));
+            var offsets = new List<double>();
+            foreach (var t in titles.Take(5))
+            {
+                help.ShowTopic(t);
+                help.UpdateLayout();
+                offsets.Add(sv?.VerticalOffset ?? -1);
+            }
+            Check("Selecting topics scrolls down through the guide",
+                  offsets[0] == 0 && offsets.Zip(offsets.Skip(1), (x, y) => y > x).All(b => b),
+                  string.Join(", ", offsets.Select(o => o.ToString("0"))));
+            help.ShowTopic("Getting started");
+            help.UpdateLayout();
+            Check("Going back to the first topic scrolls to the top", sv?.VerticalOffset == 0, sv?.VerticalOffset.ToString());
+            help.Close();
+        }
+    }
+
+    static T FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        if (parent == null) return null;
+        for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+            if (child is T match) return match;
+            var found = FindVisualChild<T>(child);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    static bool SafeDeserialize(string xml)
+    {
+        try { MWL4.Models.ConnectionProfile.Deserialize(xml); return false; }
+        catch (InvalidOperationException) { }
+        // The view model must survive it: construct one with the broken setting.
+        var before = (string)_settings["ConnectionProfiles"];
+        _settings["ConnectionProfiles"] = xml;
+        try { return new MainViewModel().Profiles.Count == 0; }
+        finally { _settings["ConnectionProfiles"] = before; }
+    }
+
+    static bool TryOpenDetails(MWL4.Models.WorklistItem item)
+    {
+        var w = new DatasetDetailsWindow(item) { ShowInTaskbar = false, Left = -2000 };
+        w.Show();
+        var tree = (TreeView)w.FindName("DatasetTree");
+        var ok = tree.Items.Count > 0 && w.Title.Contains("Åström^Anna");
+        w.Close();
+        return ok;
+    }
+
+    static X509Certificate2 CreateSelfSignedCert()
+    {
+        using (var rsa = RSA.Create(2048))
+        {
+            var req = new CertificateRequest("CN=localhost", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+            using (var cert = req.CreateSelfSigned(DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddDays(1)))
+            {
+                // SChannel cannot use the ephemeral key of a freshly created certificate; re-import it from a PFX.
+                return new X509Certificate2(cert.Export(X509ContentType.Pfx, "x"), "x", X509KeyStorageFlags.Exportable);
+            }
+        }
+    }
+
+    static async Task RunTlsTests(MainViewModel vm)
+    {
+        X509Certificate2 cert;
+        try { cert = CreateSelfSignedCert(); }
+        catch (Exception ex) { Console.WriteLine("  SKIP  could not create a self-signed certificate: " + ex.Message); return; }
+
+        using (DicomServerFactory.Create<MockScp>(TlsPort, new FellowOakDicom.Network.Tls.DefaultTlsAcceptor(cert)))
+        {
+            vm.ServerPort = TlsPort;
+            vm.UseTLS = true;
+            try
+            {
+                vm.TlsIgnoreCertErrors = false;
+                var echoBefore = Scp.EchoCount;
+                var msgs = await Run(vm, vm.DicomEchoCommand);
+                Check("TLS echo to self-signed server fails when certificate errors are not accepted",
+                      Scp.EchoCount == echoBefore && vm.StatusText.Contains("C-ECHO failed"), vm.StatusText);
+
+                vm.TlsIgnoreCertErrors = true;
+                msgs = await Run(vm, vm.DicomEchoCommand);
+                Check("TLS echo succeeds when certificate errors are accepted",
+                      Scp.EchoCount == echoBefore + 1 && vm.StatusText.Contains("Echo successful"), vm.StatusText + " " + string.Join("; ", msgs));
+
+                await Run(vm, vm.QueryCommand);
+                Check("TLS query returns the worklist", vm.WorklistResults.Count == 3, $"{vm.WorklistResults.Count} rows, {vm.StatusText}");
+
+                vm.TlsClientCertThumbprint = "0011223344556677889900112233445566778899";
+                msgs = await Run(vm, vm.DicomEchoCommand);
+                Check("Missing client certificate gives a clear error",
+                      msgs.Any(m => m.Contains("client certificate") && m.Contains("was not found")), string.Join("; ", msgs));
+            }
+            finally
+            {
+                vm.TlsClientCertThumbprint = "";
+                vm.TlsIgnoreCertErrors = false;
+                vm.UseTLS = false;
+                vm.ServerPort = Port;
+            }
+        }
     }
 
     static Button FindButton(DependencyObject root, string content)

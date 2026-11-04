@@ -12,7 +12,7 @@ From the repo root, in PowerShell:
 
 The script builds the solution (Release), compiles the harness into `Tests\bin` and runs it. Each check prints `PASS` or `FAIL`. The exit code is 0 only if all checks pass.
 
-Requirements: Visual Studio (or Build Tools) with MSBuild, and .NET Framework 4.8 reference assemblies. Ports 41112 and 41113 must be free.
+Requirements: Visual Studio (or Build Tools) with MSBuild, and .NET Framework 4.8 reference assemblies. Ports 41112, 41113 and 41114 (TLS) must be free.
 
 ## What is covered
 
@@ -23,8 +23,14 @@ Requirements: Visual Studio (or Build Tools) with MSBuild, and .NET Framework 4.
 - C-ECHO: success, failure status, stopped server.
 - Status bar messages and message box titles.
 - Host and port validation.
-- Settings dialog Cancel.
+- Settings dialog Cancel, Reset to default, timeout validation.
+- Cancel and response timeouts (query and echo).
+- Query statistics, character set option, row details tree, grid filter.
+- Connection profiles (save, overwrite, select, delete, broken setting).
+- TLS against a mock SCP with a self-signed certificate (skipped if no certificate can be created).
+- Saving, applying and resetting the column layout.
+- View Filter Results toggle, and the help window (topics and navigation).
 
-Not covered: clicking the real main window, TLS, and real worklist servers.
+Not covered: clicking the real main window, picking a client certificate from the store, and real worklist servers.
 
 Your settings in `%LocalAppData%\DMWLT4\user.config` are read but never saved. The script warns if the file changes.

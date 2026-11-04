@@ -1,7 +1,13 @@
+using FellowOakDicom;
+
 namespace MWL4.Models
 {
     public class WorklistItem
     {
+        /// <summary>The full dataset returned by the SCP, shown in the details window.</summary>
+        public DicomDataset Dataset { get; set; }
+
+        public string SpecificCharacterSet { get; set; } // (0008,0005) of the response
         public string PatientName { get; set; }
         public string PatientID { get; set; }
         public string PatientSex { get; set; }

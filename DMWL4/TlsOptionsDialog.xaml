@@ -1,0 +1,39 @@
+<Window x:Class="MWL4.TlsOptionsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="TLS Options"
+        Width="480"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+    <StackPanel Margin="15">
+        <GroupBox Header="Server certificate" Margin="0,0,0,10">
+            <StackPanel Margin="5">
+                <CheckBox x:Name="IgnoreCertErrorsBox"
+                          Content="Accept self-signed or invalid server certificates"/>
+                <TextBlock Margin="20,4,0,0" TextWrapping="Wrap" Foreground="Gray"
+                           Text="Use only for testing. The server's identity is not verified."/>
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox Header="Client certificate" Margin="0,0,0,10">
+            <Grid Margin="5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="CertificateText" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Content="Select..." Width="70" Margin="8,0,0,0" Click="SelectButton_Click"
+                        ToolTip="Pick a certificate with a private key from your personal certificate store"/>
+                <Button Grid.Column="2" Content="Clear" Width="60" Margin="6,0,0,0" Click="ClearButton_Click"/>
+            </Grid>
+        </GroupBox>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="OK" Click="OkButton_Click" Width="80" Height="25" Margin="0,0,10,0" IsDefault="True"/>
+            <Button Content="Cancel" Width="80" Height="25" IsCancel="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

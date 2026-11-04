@@ -2,20 +2,26 @@ using DMWLT4.Properties;
 using FellowOakDicom;
 using FellowOakDicom.Network;
 using FellowOakDicom.Network.Client;
+using FellowOakDicom.Network.Tls;
 using MWL4.Extensions;
 using MWL4.Infrastructure;
 using MWL4.Models;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Net.NetworkInformation;
+using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Input;
-using System.Linq;
 
 namespace MWL4.ViewModels
 {
@@ -62,6 +68,51 @@ namespace MWL4.ViewModels
             get => _useTLS;
             set { _useTLS = value; OnPropertyChanged(); Settings.Default.UseTLS = value; }
         }
+
+        private bool _tlsIgnoreCertErrors;
+        /// <summary>Accept self-signed or otherwise invalid server certificates.</summary>
+        public bool TlsIgnoreCertErrors
+        {
+            get => _tlsIgnoreCertErrors;
+            set { _tlsIgnoreCertErrors = value; OnPropertyChanged(); Settings.Default.TlsIgnoreCertErrors = value; }
+        }
+
+        private string _tlsClientCertThumbprint;
+        /// <summary>Thumbprint of the client certificate in CurrentUser\My, or empty for none.</summary>
+        public string TlsClientCertThumbprint
+        {
+            get => _tlsClientCertThumbprint;
+            set { _tlsClientCertThumbprint = value ?? string.Empty; OnPropertyChanged(); Settings.Default.TlsClientCertThumbprint = _tlsClientCertThumbprint; }
+        }
+        #endregion
+
+        #region Properties - Profiles
+        public ObservableCollection<ConnectionProfile> Profiles { get; } = new ObservableCollection<ConnectionProfile>();
+
+        private string _profileName = string.Empty;
+        /// <summary>Text of the editable profile combo box: the name used by Save.</summary>
+        public string ProfileName { get => _profileName; set { _profileName = value ?? string.Empty; OnPropertyChanged(); } }
+
+        private ConnectionProfile _selectedProfile;
+        /// <summary>Selecting a profile copies its values into the connection fields.</summary>
+        public ConnectionProfile SelectedProfile
+        {
+            get => _selectedProfile;
+            set
+            {
+                if (ReferenceEquals(_selectedProfile, value)) return;
+                _selectedProfile = value;
+                OnPropertyChanged();
+                if (value != null)
+                {
+                    ApplyProfile(value);
+                }
+            }
+        }
+
+        /// <summary>Asks the user a yes/no question. Replaceable for tests.</summary>
+        public Func<string, bool> Confirm { get; set; } = message =>
+            MessageBox.Show(message, "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
         #endregion
 
         #region Properties - Query
@@ -88,8 +139,13 @@ namespace MWL4.ViewModels
         public DateTime? EndDate { get => _endDate; set { _endDate = value; OnPropertyChanged(); } }
         #endregion
 
+        #region Properties - Results / status
         private string _statusText = "Ready";
         public string StatusText { get => _statusText; set { _statusText = value; OnPropertyChanged(); } }
+
+        private string _queryStats = string.Empty;
+        /// <summary>Statistics of the last query (time, responses, final status), shown at the right of the status bar.</summary>
+        public string QueryStats { get => _queryStats; private set { _queryStats = value; OnPropertyChanged(); } }
 
         // Result of the last operation (echo/ping/query warnings/errors). Kept separately so that
         // UpdateStatusWithCounts (e.g. on selection change) does not erase it.
@@ -123,34 +179,90 @@ namespace MWL4.ViewModels
 
         public ObservableCollection<WorklistItem> WorklistResults { get; } = new ObservableCollection<WorklistItem>();
 
+        /// <summary>The view the results grid shows. Used for the client-side filter.</summary>
+        public ICollectionView ResultsView { get; }
+
+        private string _filterText = string.Empty;
+        /// <summary>Client-side filter: case-insensitive text match on the visible columns.</summary>
+        public string FilterText
+        {
+            get => _filterText;
+            set
+            {
+                _filterText = value ?? string.Empty;
+                OnPropertyChanged();
+                RefreshFilter();
+            }
+        }
+
+        private bool _isFilterBarVisible;
+        /// <summary>
+        /// Shows or hides the filter bar (File -> View Filter Results). Hiding it clears the filter,
+        /// so that no rows are hidden without a visible reason.
+        /// </summary>
+        public bool IsFilterBarVisible
+        {
+            get => _isFilterBarVisible;
+            set
+            {
+                if (_isFilterBarVisible == value) return;
+                _isFilterBarVisible = value;
+                Settings.Default.ShowFilterBar = value;
+                OnPropertyChanged();
+                if (!value && !string.IsNullOrEmpty(FilterText))
+                {
+                    FilterText = string.Empty;
+                }
+            }
+        }
+
+        private List<PropertyInfo> _filterProperties = new List<PropertyInfo>();
+        #endregion
+
         public ICommand DicomEchoCommand { get; }
         public ICommand QueryCommand { get; }
+        public ICommand CancelCommand { get; }
         public ICommand ExitCommand { get; }
         public ICommand AboutCommand { get; }
         public ICommand PingCommand { get; }
         public ICommand ClearResultsCommand { get; }
+        public ICommand ClearFilterCommand { get; }
+        public ICommand ToggleFilterBarCommand { get; }
+        public ICommand HelpCommand { get; }
         public ICommand SelectionChangedCommand { get; }
+        public ICommand SaveProfileCommand { get; }
+        public ICommand DeleteProfileCommand { get; }
+
+        // Set while a cancellable operation (Echo/Query) runs.
+        private CancellationTokenSource _cts;
 
         public MainViewModel()
         {
             _logger = Log.ForContext<MainViewModel>();
             _logger.Information("MainViewModel initialized");
 
+            ResultsView = CollectionViewSource.GetDefaultView(WorklistResults);
+
             LoadSettings();
+            LoadProfiles();
+            UpdateFilterProperties();
 
             // Network commands are disabled while another network operation is running,
             // otherwise e.g. a double-clicked Query runs two C-FINDs into the same result list.
             DicomEchoCommand = new RelayCommand(async _ => await RunBusyAsync(DoEchoAsync), _ => !IsBusy);
             QueryCommand = new RelayCommand(async _ => await RunBusyAsync(DoQueryAsync), _ => !IsBusy);
-            PingCommand = new RelayCommand(async _ => await RunBusyAsync(DoPingAsync), _ => !IsBusy);
+            PingCommand = new RelayCommand(async _ => await RunBusyAsync(ct => DoPingAsync(), cancellable: false), _ => !IsBusy);
+            CancelCommand = new RelayCommand(_ => CancelOperation(), _ => _cts != null && !_cts.IsCancellationRequested);
             AboutCommand = new RelayCommand(_ => ShowAbout());
-            ExitCommand = new RelayCommand(_ =>
-            {
-                SaveSettings();
-                Application.Current?.Shutdown();
-            });
+            ExitCommand = new RelayCommand(_ => Application.Current?.Shutdown()); // settings are saved in MainWindow.OnClosed
 
             ClearResultsCommand = new RelayCommand(_ => ClearResults(), _ => !IsBusy);
+            ClearFilterCommand = new RelayCommand(_ => FilterText = string.Empty);
+            ToggleFilterBarCommand = new RelayCommand(_ => IsFilterBarVisible = !IsFilterBarVisible);
+            HelpCommand = new RelayCommand(_ => ShowHelp());
+
+            SaveProfileCommand = new RelayCommand(_ => SaveProfile());
+            DeleteProfileCommand = new RelayCommand(_ => DeleteProfile(), _ => FindProfile(ProfileName) != null);
 
             SelectionChangedCommand = new RelayCommand(p =>
             {
@@ -172,18 +284,33 @@ namespace MWL4.ViewModels
             });
         }
 
-        private async Task RunBusyAsync(Func<Task> action)
+        private async Task RunBusyAsync(Func<CancellationToken, Task> action, bool cancellable = true)
         {
             if (IsBusy) return;
             IsBusy = true;
+            var cts = cancellable ? new CancellationTokenSource() : null;
+            _cts = cts;
+            CommandManager.InvalidateRequerySuggested();
             try
             {
-                await action();
+                await action(cts?.Token ?? CancellationToken.None);
             }
             finally
             {
+                _cts = null;
+                cts?.Dispose();
                 IsBusy = false;
             }
+        }
+
+        private void CancelOperation()
+        {
+            var cts = _cts;
+            if (cts == null || cts.IsCancellationRequested) return;
+            _logger.Information("Cancel requested by user");
+            StatusText = "Cancelling...";
+            cts.Cancel();
+            CommandManager.InvalidateRequerySuggested();
         }
 
         private void LoadSettings()
@@ -193,19 +320,24 @@ namespace MWL4.ViewModels
             _serverHost = Settings.Default.ServerHost ?? string.Empty;
             _serverPort = Settings.Default.ServerPort;
             _useTLS = Settings.Default.UseTLS;
+            _tlsIgnoreCertErrors = Settings.Default.TlsIgnoreCertErrors;
+            _tlsClientCertThumbprint = Settings.Default.TlsClientCertThumbprint ?? string.Empty;
+            _isFilterBarVisible = Settings.Default.ShowFilterBar;
         }
 
-        private void SaveSettings()
+        /// <summary>Opens the help guide, or brings it to the front if it is already open.</summary>
+        private void ShowHelp()
         {
-            try
+            var existing = Application.Current?.Windows.OfType<HelpWindow>().FirstOrDefault();
+            if (existing != null)
             {
-                Settings.Default.Save();
-                _logger.Debug("Settings saved successfully");
+                if (existing.WindowState == WindowState.Minimized) existing.WindowState = WindowState.Normal;
+                existing.Activate();
+                return;
             }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "Failed to save settings");
-            }
+            // Not owned by the main window, so it can be placed next to it instead of always on top.
+            // MainWindow closes it on exit.
+            new HelpWindow().Show();
         }
 
         private void ShowAbout()
@@ -217,6 +349,100 @@ namespace MWL4.ViewModels
             };
             dlg.ShowDialog();
         }
+
+        #region Profiles
+        private void LoadProfiles()
+        {
+            Profiles.Clear();
+            try
+            {
+                foreach (var p in ConnectionProfile.Deserialize(Settings.Default.ConnectionProfiles)
+                                                   .Where(p => !string.IsNullOrWhiteSpace(p.Name))
+                                                   .OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase))
+                {
+                    Profiles.Add(p);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Could not read saved connection profiles, they are ignored");
+            }
+        }
+
+        private void StoreProfiles()
+        {
+            Settings.Default.ConnectionProfiles = ConnectionProfile.Serialize(Profiles);
+        }
+
+        private ConnectionProfile FindProfile(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return null;
+            return Profiles.FirstOrDefault(p => string.Equals(p.Name, name.Trim(), StringComparison.CurrentCultureIgnoreCase));
+        }
+
+        private void ApplyProfile(ConnectionProfile p)
+        {
+            CallingAET = p.CallingAET ?? string.Empty;
+            ServerAET = p.ServerAET ?? string.Empty;
+            ServerHost = p.ServerHost ?? string.Empty;
+            ServerPort = p.ServerPort;
+            UseTLS = p.UseTLS;
+            TlsIgnoreCertErrors = p.TlsIgnoreCertErrors;
+            TlsClientCertThumbprint = p.TlsClientCertThumbprint ?? string.Empty;
+            _logger.Information("Loaded connection profile {name}", p.Name);
+            SetStatus($"Profile '{p.Name}' loaded.");
+        }
+
+        private void SaveProfile()
+        {
+            var name = ProfileName?.Trim();
+            if (string.IsNullOrEmpty(name))
+            {
+                ShowMessage("Type a name for the profile in the Profile box first.", MessageBoxImage.Warning);
+                return;
+            }
+
+            var profile = FindProfile(name);
+            if (profile == null)
+            {
+                profile = new ConnectionProfile { Name = name };
+                // Keep the list sorted by name.
+                var index = 0;
+                while (index < Profiles.Count && StringComparer.CurrentCultureIgnoreCase.Compare(Profiles[index].Name, name) < 0) index++;
+                Profiles.Insert(index, profile);
+            }
+
+            profile.CallingAET = CallingAET;
+            profile.ServerAET = ServerAET;
+            profile.ServerHost = ServerHost;
+            profile.ServerPort = ServerPort;
+            profile.UseTLS = UseTLS;
+            profile.TlsIgnoreCertErrors = TlsIgnoreCertErrors;
+            profile.TlsClientCertThumbprint = TlsClientCertThumbprint;
+            StoreProfiles();
+
+            _selectedProfile = profile; // values are already current, so do not re-apply
+            OnPropertyChanged(nameof(SelectedProfile));
+            ProfileName = profile.Name;
+            _logger.Information("Saved connection profile {name}", profile.Name);
+            SetStatus($"Profile '{profile.Name}' saved.");
+        }
+
+        private void DeleteProfile()
+        {
+            var profile = FindProfile(ProfileName);
+            if (profile == null) return;
+            if (!Confirm($"Delete the connection profile '{profile.Name}'?")) return;
+
+            Profiles.Remove(profile);
+            StoreProfiles();
+            _selectedProfile = null;
+            OnPropertyChanged(nameof(SelectedProfile));
+            ProfileName = string.Empty;
+            _logger.Information("Deleted connection profile {name}", profile.Name);
+            SetStatus($"Profile '{profile.Name}' deleted.");
+        }
+        #endregion
 
         /// <summary>
         /// Validates host (and optionally port) before a network operation. Shows a warning and returns false if invalid.
@@ -238,32 +464,109 @@ namespace MWL4.ViewModels
             return true;
         }
 
-        private async Task DoEchoAsync()
+        /// <summary>
+        /// Response (DIMSE) timeout and association timeout handling.
+        /// fo-dicom's own RequestTimeout is not used: when it fires, fo-dicom drops the request but still waits
+        /// until the server has sent all its responses, and it ignores cancellation from then on. Instead, a timer
+        /// is started when the association is accepted and restarted on every response; when it fires, the
+        /// association is aborted the same way as with the Cancel button.
+        /// </summary>
+        private sealed class TimeoutWatch : IDisposable
+        {
+            private readonly CancellationTokenSource _linked;
+            private readonly Timer _timer;
+            private readonly int _responseSeconds;
+            private volatile string _reason;
+            private volatile bool _disposed;
+
+            public TimeoutWatch(IDicomClient client, CancellationToken userToken)
+            {
+                _linked = CancellationTokenSource.CreateLinkedTokenSource(userToken);
+                _responseSeconds = Settings.Default.ResponseTimeoutSeconds;
+                _timer = new Timer(_ => OnTimeout($"no response within {_responseSeconds} s"), null, Timeout.Infinite, Timeout.Infinite);
+
+                client.AssociationAccepted += (s, e) => ResponseReceived();
+                client.AssociationRequestTimedOut += (s, e) =>
+                    OnTimeout($"association not accepted within {Settings.Default.AssociationTimeoutSeconds} s");
+            }
+
+            public CancellationToken Token => _linked.Token;
+            public bool TimedOut => _reason != null;
+            /// <summary>E.g. "no response within 30 s", or null if nothing timed out.</summary>
+            public string Reason => _reason;
+
+            /// <summary>Restarts the response timer. Call it for every response received.</summary>
+            public void ResponseReceived()
+            {
+                if (_responseSeconds <= 0 || _disposed || _reason != null) return;
+                try { _timer.Change(TimeSpan.FromSeconds(_responseSeconds), Timeout.InfiniteTimeSpan); }
+                catch (ObjectDisposedException) { }
+            }
+
+            /// <summary>Stops the response timer, e.g. when the final response has arrived.</summary>
+            public void Stop()
+            {
+                try { _timer.Change(Timeout.Infinite, Timeout.Infinite); }
+                catch (ObjectDisposedException) { }
+            }
+
+            private void OnTimeout(string reason)
+            {
+                if (_reason != null || _disposed) return;
+                _reason = reason;
+                Log.ForContext<MainViewModel>().Warning("Timeout: {reason}, aborting association", reason);
+                // Cancel from another thread: the events are raised from inside fo-dicom's own processing.
+                Task.Run(() =>
+                {
+                    try { _linked.Cancel(); }
+                    catch (ObjectDisposedException) { }
+                });
+            }
+
+            public void Dispose()
+            {
+                _disposed = true;
+                _timer.Dispose();
+                _linked.Dispose();
+            }
+        }
+
+        private async Task DoEchoAsync(CancellationToken token)
         {
             if (!ValidateConnection()) return;
 
             StatusText = "Performing C-ECHO...";
             _logger.Information("C-ECHO -> {host}:{port}", ServerHost, ServerPort);
 
+            TimeoutWatch watch = null;
             try
             {
                 var client = CreateClient();
+                watch = new TimeoutWatch(client, token);
+
                 var request = new DicomCEchoRequest();
                 DicomStatus echoStatus = null;
-                request.OnResponseReceived += (req, res) => echoStatus = res.Status;
+                request.OnResponseReceived += (req, res) =>
+                {
+                    echoStatus = res.Status;
+                    watch.Stop();
+                };
 
                 var sw = Stopwatch.StartNew();
                 await client.AddRequestAsync(request);
-                await client.SendAsync();
+                await client.SendAsync(watch.Token, DicomClientCancellationMode.ImmediatelyAbortAssociation);
                 sw.Stop();
 
                 // SendAsync completing without an exception does not guarantee that a successful
                 // C-ECHO response was received, so check the actual response status.
-                if (echoStatus == null)
+                if (token.IsCancellationRequested)
                 {
-                    _logger.Warning("C-ECHO: no response received");
-                    SetStatus("Echo failed: no response received.");
-                    ShowMessage($"No C-ECHO response received from {ServerHost}.", MessageBoxImage.Warning);
+                    _logger.Information("C-ECHO cancelled");
+                    SetStatus("Echo cancelled.");
+                }
+                else if (echoStatus == null)
+                {
+                    ReportEchoNoResponse(watch.TimedOut ? watch.Reason + " (timed out)" : "no response received");
                 }
                 else if (echoStatus != DicomStatus.Success)
                 {
@@ -278,10 +581,30 @@ namespace MWL4.ViewModels
                     ShowMessage($"Connection to {ServerHost} successful.\nTime: {sw.ElapsedMilliseconds} ms", MessageBoxImage.Information);
                 }
             }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                _logger.Information("C-ECHO cancelled");
+                SetStatus("Echo cancelled.");
+            }
+            catch (OperationCanceledException) when (watch?.TimedOut == true)
+            {
+                ReportEchoNoResponse(watch.Reason + " (timed out)");
+            }
             catch (Exception ex)
             {
                 HandleError("C-ECHO failed", ex);
             }
+            finally
+            {
+                watch?.Dispose();
+            }
+        }
+
+        private void ReportEchoNoResponse(string reason)
+        {
+            _logger.Warning("C-ECHO: {reason}", reason);
+            SetStatus($"Echo failed: {reason}.");
+            ShowMessage($"C-ECHO to {ServerHost} failed: {reason}.", MessageBoxImage.Warning);
         }
 
         private async Task DoPingAsync()
@@ -312,7 +635,7 @@ namespace MWL4.ViewModels
             }
         }
 
-        private async Task DoQueryAsync()
+        private async Task DoQueryAsync(CancellationToken token)
         {
             if (!ValidateConnection()) return;
 
@@ -326,16 +649,20 @@ namespace MWL4.ViewModels
             SelectedCount = 0;
             _statusSuffix = string.Empty;
             StatusText = "Querying Worklist...";
+            QueryStats = string.Empty;
+
+            DicomStatus finalStatus = null;
+            var pendingResponses = 0;
+            var pendingWarnings = 0;
+            var mappingErrors = 0;
+            var sw = new Stopwatch();
+            TimeoutWatch watch = null;
 
             try
             {
                 var request = BuildCFindRequest();
                 var client = CreateClient();
-
-                DicomStatus finalStatus = null;
-                var pendingResponses = 0;
-                var pendingWarnings = 0;
-                var mappingErrors = 0;
+                watch = new TimeoutWatch(client, token);
 
                 request.OnResponseReceived += (req, res) =>
                 {
@@ -345,6 +672,7 @@ namespace MWL4.ViewModels
                     // silently dropped all FF01 matches. Compare the state instead.
                     if (res.Status.State == DicomState.Pending)
                     {
+                        watch.ResponseReceived();
                         pendingResponses++;
                         if (res.Status != DicomStatus.Pending)
                         {
@@ -370,19 +698,33 @@ namespace MWL4.ViewModels
                     }
                     else
                     {
+                        watch.Stop();
                         finalStatus = res.Status;
                     }
                 };
 
+                sw.Start();
                 await client.AddRequestAsync(request);
-                await client.SendAsync();
+                await client.SendAsync(watch.Token, DicomClientCancellationMode.ImmediatelyAbortAssociation);
+                sw.Stop();
+
+                var cancelled = token.IsCancellationRequested && finalStatus == null;
+                var timedOut = watch.TimedOut;
 
                 _logger.Information(
-                    "Query completed. Results: {count}, pending responses: {pending} (of which FF01/warning: {warnings}), mapping errors: {errors}, final status: {status}",
-                    WorklistResults.Count, pendingResponses, pendingWarnings, mappingErrors, finalStatus?.ToString() ?? "<none>");
+                    "Query completed. Results: {count}, pending responses: {pending} (of which FF01/warning: {warnings}), mapping errors: {errors}, final status: {status}, cancelled: {cancelled}, timed out: {timedOut}, {ms} ms",
+                    WorklistResults.Count, pendingResponses, pendingWarnings, mappingErrors, finalStatus?.ToString() ?? "<none>", cancelled, timedOut, sw.ElapsedMilliseconds);
 
                 var suffix = string.Empty;
-                if (finalStatus == null)
+                if (cancelled)
+                {
+                    suffix += $" Query cancelled - {WorklistResults.Count} item(s) received.";
+                }
+                else if (finalStatus == null && timedOut)
+                {
+                    suffix += $" Warning: {watch.Reason} (timed out) - results may be incomplete.";
+                }
+                else if (finalStatus == null)
                 {
                     suffix += " Warning: no final response received from server (timeout or aborted association) - results may be incomplete.";
                 }
@@ -396,18 +738,50 @@ namespace MWL4.ViewModels
                     suffix += $" {mappingErrors} response(s) could not be read, see log.";
                 }
 
+                QueryStats = FormatQueryStats(sw.ElapsedMilliseconds, pendingResponses, pendingWarnings, finalStatus,
+                    cancelled ? "cancelled" : timedOut ? "timed out" : null);
                 SetStatus(suffix.Trim());
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                sw.Stop();
+                QueryStats = FormatQueryStats(sw.ElapsedMilliseconds, pendingResponses, pendingWarnings, finalStatus, "cancelled");
+                SetStatus($"Query cancelled - {WorklistResults.Count} item(s) received.");
+            }
+            catch (OperationCanceledException) when (watch?.TimedOut == true)
+            {
+                sw.Stop();
+                QueryStats = FormatQueryStats(sw.ElapsedMilliseconds, pendingResponses, pendingWarnings, finalStatus, "timed out");
+                SetStatus($"Warning: {watch.Reason} (timed out) - results may be incomplete.");
             }
             catch (Exception ex)
             {
+                sw.Stop();
+                QueryStats = $"Last query: failed after {sw.ElapsedMilliseconds} ms";
                 HandleError("Worklist query failed", ex);
             }
+            finally
+            {
+                watch?.Dispose();
+            }
+        }
+
+        /// <summary>E.g. "Last query: 245 ms · 3 responses (1 × FF01) · final: Success [0000]".</summary>
+        private static string FormatQueryStats(long ms, int responses, int warnings, DicomStatus finalStatus, string noFinalReason)
+        {
+            var text = $"Last query: {ms} ms · {responses} response{(responses == 1 ? "" : "s")}";
+            if (warnings > 0) text += $" ({warnings} × FF01)";
+            text += finalStatus != null
+                ? $" · final: {finalStatus.Description} [{finalStatus.Code:X4}]"
+                : $" · final: none{(noFinalReason != null ? $" ({noFinalReason})" : "")}";
+            return text;
         }
 
         private void ClearResults()
         {
             WorklistResults.Clear();
             SelectedCount = 0;
+            QueryStats = string.Empty;
             SetStatus("Results cleared.");
         }
 
@@ -421,6 +795,10 @@ namespace MWL4.ViewModels
         private void UpdateStatusWithCounts()
         {
             var text = $"Found {WorklistResults.Count} items.";
+            if (!string.IsNullOrEmpty(FilterText))
+            {
+                text += $" {ResultsView.Cast<object>().Count()} shown.";
+            }
             if (SelectedCount > 0)
             {
                 text += $" {SelectedCount} selected.";
@@ -432,6 +810,50 @@ namespace MWL4.ViewModels
             StatusText = text;
         }
 
+        #region Filter
+        /// <summary>
+        /// Re-reads the visible columns (they may have changed in Settings) and re-applies the filter.
+        /// </summary>
+        public void RefreshFilter()
+        {
+            UpdateFilterProperties();
+            if (string.IsNullOrEmpty(FilterText))
+            {
+                ResultsView.Filter = null;
+            }
+            else
+            {
+                ResultsView.Filter = FilterItem;
+            }
+            UpdateStatusWithCounts();
+        }
+
+        private void UpdateFilterProperties()
+        {
+            var visible = new HashSet<string>((Settings.Default.VisibleColumns ?? string.Empty)
+                .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries));
+            _filterProperties = typeof(WorklistItem).GetProperties()
+                .Where(p => p.PropertyType == typeof(string) && visible.Contains(p.Name))
+                .ToList();
+        }
+
+        private bool FilterItem(object obj)
+        {
+            if (!(obj is WorklistItem item)) return false;
+            var filter = FilterText?.Trim();
+            if (string.IsNullOrEmpty(filter)) return true;
+            foreach (var prop in _filterProperties)
+            {
+                var value = prop.GetValue(item) as string;
+                if (!string.IsNullOrEmpty(value) && value.IndexOf(filter, StringComparison.CurrentCultureIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        #endregion
+
         private WorklistItem MapDatasetToWorklistItem(DicomDataset ds)
         {
             var spsSeq = DicomTag.ScheduledProcedureStepSequence;
@@ -440,6 +862,9 @@ namespace MWL4.ViewModels
 
             return new WorklistItem
             {
+                Dataset = ds,
+                SpecificCharacterSet = ds.GetStringSafe(DicomTag.SpecificCharacterSet),
+
                 PatientName = ds.GetStringSafe(DicomTag.PatientName),
                 PatientID = ds.GetStringSafe(DicomTag.PatientID),
                 AccessionNumber = ds.GetStringSafe(DicomTag.AccessionNumber),
@@ -520,6 +945,19 @@ namespace MWL4.ViewModels
             return chars.All(c => c <= 0xFF) ? "ISO_IR 100" : "ISO_IR 192";
         }
 
+        /// <summary>
+        /// The Specific Character Set to send: the configured one, or (Auto) the one detected from the query values.
+        /// </summary>
+        private static string ResolveCharacterSet(params string[] values)
+        {
+            var configured = Settings.Default.CharacterSet?.Trim();
+            if (string.IsNullOrEmpty(configured) || string.Equals(configured, "Auto", StringComparison.OrdinalIgnoreCase))
+            {
+                return DetectCharacterSet(values);
+            }
+            return configured;
+        }
+
         private DicomCFindRequest BuildCFindRequest()
         {
             var patientName = BuildPatientNameKey(PatientName);
@@ -532,11 +970,11 @@ namespace MWL4.ViewModels
             var ds = new DicomDataset();
 
             // Specific Character Set must be added before the text elements so that they are encoded with it.
-            var charset = DetectCharacterSet(patientName, patientId, stationName);
+            var charset = ResolveCharacterSet(patientName, patientId, stationName);
             if (charset != null)
             {
                 ds.Add(DicomTag.SpecificCharacterSet, charset);
-                _logger.Debug("Query contains non-ASCII characters, using Specific Character Set {charset}", charset);
+                _logger.Debug("Using Specific Character Set {charset} (setting: {setting})", charset, Settings.Default.CharacterSet);
             }
 
             ds.Add(DicomTag.PatientName, patientName);
@@ -601,10 +1039,61 @@ namespace MWL4.ViewModels
 
         private IDicomClient CreateClient()
         {
-            var client = DicomClientFactory.Create(ServerHost, ServerPort, UseTLS, CallingAET, ServerAET);
+            var client = UseTLS
+                ? DicomClientFactory.Create(ServerHost, ServerPort, CreateTlsInitiator(), CallingAET, ServerAET)
+                : DicomClientFactory.Create(ServerHost, ServerPort, false, CallingAET, ServerAET);
+
             client.ServiceOptions.LogDimseDatasets = Settings.Default.Client_LogDimseDatasets;
             client.ServiceOptions.LogDataPDUs = Settings.Default.Client_LogDataPDUs;
+
+            var connectSeconds = Settings.Default.ConnectionTimeoutSeconds;
+            var assocSeconds = Settings.Default.AssociationTimeoutSeconds;
+            if (connectSeconds > 0) client.ClientOptions.ConnectionTimeoutInMs = connectSeconds * 1000;
+            if (assocSeconds > 0) client.ClientOptions.AssociationRequestTimeoutInMs = assocSeconds * 1000;
+            // The response timeout is handled by TimeoutWatch, see there why fo-dicom's RequestTimeout is not used.
+            client.ServiceOptions.RequestTimeout = null;
+
             return client;
+        }
+
+        private ITlsInitiator CreateTlsInitiator()
+        {
+            var initiator = new DefaultTlsInitiator
+            {
+                IgnoreSslPolicyErrors = TlsIgnoreCertErrors
+            };
+
+            if (!string.IsNullOrWhiteSpace(TlsClientCertThumbprint))
+            {
+                var cert = FindCertificate(TlsClientCertThumbprint);
+                if (cert == null)
+                {
+                    throw new InvalidOperationException(
+                        $"The client certificate with thumbprint {TlsClientCertThumbprint} was not found in the current user's personal certificate store. Select another one in TLS options.");
+                }
+                initiator.Certificates = new X509CertificateCollection { cert };
+                _logger.Information("Using TLS client certificate {subject} ({thumbprint})", cert.Subject, cert.Thumbprint);
+            }
+
+            return initiator;
+        }
+
+        /// <summary>Looks up a certificate by thumbprint in CurrentUser\My. Returns null if not found.</summary>
+        public static X509Certificate2 FindCertificate(string thumbprint)
+        {
+            if (string.IsNullOrWhiteSpace(thumbprint)) return null;
+            var clean = new string(thumbprint.Where(Uri.IsHexDigit).ToArray());
+            var store = new X509Store(StoreName.My, StoreLocation.CurrentUser);
+            try
+            {
+                store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
+                var found = store.Certificates.Find(X509FindType.FindByThumbprint, clean, false);
+                return found.Count > 0 ? found[0] : null;
+            }
+            finally
+            {
+                store.Close();
+            }
         }
 
         private void HandleError(string context, Exception ex)

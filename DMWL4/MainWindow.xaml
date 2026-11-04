@@ -5,27 +5,48 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:MWL4"
         mc:Ignorable="d"
-        Title="DICOM Modality Worklist Tester (DMWLT)" Height="600" Width="1200">
+        Title="DICOM Modality Worklist Tester (DMWLT)" Height="680" Width="1200">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+    </Window.Resources>
+    <Window.InputBindings>
+        <KeyBinding Gesture="Ctrl+F" Command="{Binding ToggleFilterBarCommand}"/>
+        <KeyBinding Gesture="F1" Command="{Binding HelpCommand}"/>
+    </Window.InputBindings>
     <DockPanel>
         <Menu DockPanel.Dock="Top" Background="White">
             <MenuItem Header="_File">
                 <MenuItem Header="_Settings" Click="SettingsMenuItem_Click" />
+                <MenuItem Header="_View Filter Results" IsCheckable="True" InputGestureText="Ctrl+F"
+                          IsChecked="{Binding IsFilterBarVisible, Mode=TwoWay}"
+                          ToolTip="Show or hide the filter bar above the results table" />
                 <MenuItem Header="_Open log directory" Click="OpenLogDirectoryMenuItem_Click" />
+                <Separator />
                 <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
             </MenuItem>
             <MenuItem Header="_Help">
+                <MenuItem Header="_Help" Command="{Binding HelpCommand}" InputGestureText="F1" />
+                <Separator />
                 <MenuItem Header="_About" Command="{Binding AboutCommand}" />
             </MenuItem>
         </Menu>
 
         <StatusBar DockPanel.Dock="Bottom">
+            <StatusBar.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <DockPanel LastChildFill="True"/>
+                </ItemsPanelTemplate>
+            </StatusBar.ItemsPanel>
+            <StatusBarItem DockPanel.Dock="Right">
+                <TextBlock Text="{Binding QueryStats}" ToolTip="Statistics of the last query"/>
+            </StatusBarItem>
+            <Separator DockPanel.Dock="Right"/>
             <StatusBarItem>
-                <TextBlock Text="{Binding StatusText}"/>
+                <TextBlock Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusText}"/>
             </StatusBarItem>
         </StatusBar>
         <Grid Margin="8">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
@@ -34,56 +55,76 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <GroupBox Header="Local" Grid.Row="0" Grid.Column="0" Margin="0,0,8,8" Height="60" VerticalAlignment="Top">
-                <Grid Margin="8,8,8,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <Label Content="Calling AET:" VerticalAlignment="Center"/>
-                    <TextBox Grid.Column="1" Text="{Binding CallingAET, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="10,5,0,6"/>
-                </Grid>
-            </GroupBox>
+            <DockPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
+                <GroupBox Header="Local" DockPanel.Dock="Top" Margin="0,0,0,8">
+                    <Grid Margin="8,4,8,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="90"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Label Content="Calling AET:" VerticalAlignment="Center"/>
+                        <TextBox Grid.Column="1" Text="{Binding CallingAET, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center"/>
+                    </Grid>
+                </GroupBox>
 
-            <GroupBox Header="Server" Grid.Column="0" Margin="0,65,8,8" Grid.RowSpan="2">
-                <Grid Margin="8,8,8,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="39*"/>
-                        <ColumnDefinition Width="80*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+                <GroupBox Header="Server">
+                    <Grid Margin="8,4,8,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="90"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
-                    <Label Content="AET:" Grid.Row="0" Grid.RowSpan="2" Margin="0,-4,0,4" RenderTransformOrigin="0.504,0.378"/>
-                    <TextBox Grid.Row="0" Text="{Binding ServerAET, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="81,0,0,4" Grid.ColumnSpan="5"/>
+                        <Label Content="Profile:" Grid.Row="0" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Row="0" Grid.Column="1" IsEditable="True" IsTextSearchEnabled="False"
+                                  ItemsSource="{Binding Profiles}" DisplayMemberPath="Name"
+                                  SelectedItem="{Binding SelectedProfile, Mode=TwoWay}"
+                                  Text="{Binding ProfileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  VerticalAlignment="Center" Margin="0,2,0,2"
+                                  ToolTip="Pick a saved connection profile, or type a name and click Save to store the current connection settings"/>
+                        <Button Grid.Row="0" Grid.Column="2" Content="Save" Width="60" Margin="6,2,0,2" Command="{Binding SaveProfileCommand}"
+                                ToolTip="Save the current connection settings under the typed name"/>
+                        <Button Grid.Row="0" Grid.Column="3" Content="Delete" Width="60" Margin="6,2,0,2" Command="{Binding DeleteProfileCommand}"
+                                ToolTip="Delete the selected profile"/>
 
-                    <Label Content="IP/Hostname:" Grid.RowSpan="3" Margin="0,18,0,5"/>
-                    <TextBox Grid.Row="1" Text="{Binding ServerHost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="81,0,0,24" Grid.ColumnSpan="5" Height="17.96" Grid.RowSpan="2"/>
+                        <Label Content="AET:" Grid.Row="1" VerticalAlignment="Center"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding ServerAET, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" Margin="0,2,0,2"/>
 
-                    <Label Content="Port:" Grid.Row="1" Grid.RowSpan="4" RenderTransformOrigin="0.512,0.301" Margin="0,20,0,28"/>
-                    <TextBox Grid.Row="2" Text="{Binding ServerPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="81,5,0,0" Grid.ColumnSpan="5" Height="17.96"/>
+                        <Label Content="IP/Hostname:" Grid.Row="2" VerticalAlignment="Center"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding ServerHost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" Margin="0,2,0,2"/>
 
-                    <CheckBox Grid.Row="3" Content="Use TLS" IsChecked="{Binding UseTLS, Mode=TwoWay}" Margin="10,62,0,0" HorizontalAlignment="Left" Grid.ColumnSpan="2" Grid.RowSpan="2"/>
+                        <Label Content="Port:" Grid.Row="3" VerticalAlignment="Center"/>
+                        <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding ServerPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" Margin="0,2,0,2"/>
 
-                    <Button Grid.Row="3" Grid.Column="4" Content="Dicom Echo" Width="100" Command="{Binding DicomEchoCommand}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,62,0,0"/>
-                    <Button Grid.Row="3" Grid.Column="2" Content="Ping" Width="100" Command="{Binding PingCommand}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,0" Grid.ColumnSpan="2" Grid.RowSpan="2"/>
-                </Grid>
-            </GroupBox>
+                        <StackPanel Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,4,0,2">
+                            <CheckBox Content="Use TLS" IsChecked="{Binding UseTLS, Mode=TwoWay}" VerticalAlignment="Center"/>
+                            <Button Content="TLS options..." Margin="12,0,0,0" Padding="8,0" Click="TlsOptionsButton_Click"
+                                    IsEnabled="{Binding UseTLS}"
+                                    ToolTip="Server certificate validation and client certificate"/>
+                        </StackPanel>
 
-            <GroupBox Header="Query" Grid.Row="0" Grid.Column="1" Grid.RowSpan="2" Margin="0,0,0,8">
+                        <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,8,0,0">
+                            <Button Content="Ping" Width="100" Command="{Binding PingCommand}" Margin="0,0,8,0"/>
+                            <Button Content="Dicom Echo" Width="100" Command="{Binding DicomEchoCommand}"/>
+                        </StackPanel>
+                    </Grid>
+                </GroupBox>
+            </DockPanel>
+
+            <GroupBox Header="Query" Grid.Row="0" Grid.Column="1" Margin="0,0,0,8">
                 <Grid Margin="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -97,19 +138,19 @@
                     </Grid.RowDefinitions>
 
                     <Label Content="Name:" Grid.Row="0"/>
-                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding PatientName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" Height="17.96"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding PatientName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" Margin="0,0,0,4"/>
 
                     <Label Content="Patient ID:" Grid.Row="1"/>
-                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PatientID, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Height="17.96" Margin="0,0,0,4"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PatientID, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" Margin="0,0,0,4"/>
 
                     <Label Content="Modality:" Grid.Row="2"/>
-                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Modality, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Height="17.96" Margin="0,0,0,4"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Modality, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" Margin="0,0,0,4"/>
 
                     <Label Content="Station AET:" Grid.Row="3"/>
-                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StationAET, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Height="17.96" Margin="0,0,0,4"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StationAET, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" Margin="0,0,0,4"/>
 
                     <Label Content="Station Name:" Grid.Row="4"/>
-                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding StationName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Height="17.96" Margin="0,0,0,4"/>
+                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding StationName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" Margin="0,0,0,4"/>
 
                     <Label Content="Start Date:" Grid.Row="5"/>
                     <DatePicker Grid.Row="5" Grid.Column="1" SelectedDate="{Binding StartDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" ToolTip="Leave empty for no lower limit"/>
@@ -118,13 +159,23 @@
                     <DatePicker Grid.Row="6" Grid.Column="1" SelectedDate="{Binding EndDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" ToolTip="Leave empty for no upper limit"/>
 
                     <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-                        <Button Content="Clear" Command="{Binding ClearResultsCommand}" Width="100" VerticalAlignment="Bottom" HorizontalAlignment="Right" />
+                        <Button Content="Query" Command="{Binding QueryCommand}" Width="100" Margin="0,0,8,0" IsDefault="True"/>
+                        <Button Content="Cancel" Command="{Binding CancelCommand}" Width="100" Margin="0,0,8,0"
+                                ToolTip="Abort the running query or echo"/>
+                        <Button Content="Clear" Command="{Binding ClearResultsCommand}" Width="100"/>
                     </StackPanel>
-                    <Button Content="Query" Command="{Binding QueryCommand}" Grid.Column="1" Grid.Row="7" Width="100" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,8,116,0" IsDefault="True"/>
                 </Grid>
             </GroupBox>
 
-            <GroupBox Header="Results" Grid.Row="2" Grid.ColumnSpan="2">
+            <GroupBox Header="Results" Grid.Row="1" Grid.ColumnSpan="2">
+                <DockPanel>
+                <DockPanel DockPanel.Dock="Top" Margin="8,8,8,0"
+                           Visibility="{Binding IsFilterBarVisible, Converter={StaticResource BoolToVisibility}}">
+                    <Label Content="Filter:" DockPanel.Dock="Left" VerticalAlignment="Center"/>
+                    <Button Content="&#x2715;" DockPanel.Dock="Right" Width="24" Margin="4,0,0,0" Command="{Binding ClearFilterCommand}" ToolTip="Clear filter"/>
+                    <TextBox x:Name="FilterBox" Text="{Binding FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center"
+                             ToolTip="Show only rows where a visible column contains this text (not case sensitive)"/>
+                </DockPanel>
                 <DataGrid x:Name="ResultsGrid" 
                           ItemsSource="{Binding WorklistResults}"
                           AutoGenerateColumns="False"
@@ -135,7 +186,8 @@
                           ColumnWidth="Auto"
                           ScrollViewer.HorizontalScrollBarVisibility="Auto"
                           ScrollViewer.VerticalScrollBarVisibility="Auto"
-                          SelectionChanged="DataGrid_SelectionChanged">
+                          SelectionChanged="DataGrid_SelectionChanged"
+                          MouseDoubleClick="ResultsGrid_MouseDoubleClick">
                     <DataGrid.Columns>
                         <DataGridTextColumn Binding="{Binding PatientName}">
                             <DataGridTextColumn.Header>
@@ -325,8 +377,14 @@
                                 <TextBlock Text="Service Request Comments" ToolTip="(0040,2400) Imaging Service Request Comments" />
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding SpecificCharacterSet}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Character Set" ToolTip="(0008,0005) Specific Character Set of the response" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
                     </DataGrid.Columns>
                 </DataGrid>
+                </DockPanel>
             </GroupBox>
         </Grid>
     </DockPanel>

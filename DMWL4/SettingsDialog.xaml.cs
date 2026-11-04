@@ -1,8 +1,10 @@
 using DMWLT4.Properties;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace MWL4
 {
@@ -18,21 +20,37 @@ namespace MWL4
 
         private List<ColumnSetting> _columns;
 
+        /// <summary>True if "Reset to default" was used. The caller then restores the original column order and widths.</summary>
+        public bool ColumnLayoutReset { get; private set; }
+
         public SettingsDialog()
         {
             InitializeComponent();
             LoadColumns();
 
-            // Logging options are copied into the dialog and only written back on OK,
+            // All options are copied into the dialog and only written back on OK,
             // so that Cancel really discards the changes.
             LogDimseDatasets.IsChecked = Settings.Default.Client_LogDimseDatasets;
             LogDataPDUs.IsChecked = Settings.Default.Client_LogDataPDUs;
+
+            ConnectionTimeoutBox.Text = Settings.Default.ConnectionTimeoutSeconds.ToString(CultureInfo.InvariantCulture);
+            AssociationTimeoutBox.Text = Settings.Default.AssociationTimeoutSeconds.ToString(CultureInfo.InvariantCulture);
+            ResponseTimeoutBox.Text = Settings.Default.ResponseTimeoutSeconds.ToString(CultureInfo.InvariantCulture);
+
+            CharacterSetBox.SelectedValue = Settings.Default.CharacterSet;
+            if (CharacterSetBox.SelectedIndex < 0) CharacterSetBox.SelectedIndex = 0;
         }
+
+        private static HashSet<string> ParseColumns(string setting) =>
+            new HashSet<string>((setting ?? string.Empty).Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries));
+
+        /// <summary>The default VisibleColumns value, taken from the setting's [DefaultSettingValue].</summary>
+        public static string DefaultVisibleColumns =>
+            Settings.Default.Properties["VisibleColumns"]?.DefaultValue as string ?? string.Empty;
 
         private void LoadColumns()
         {
-            var savedSetting = Settings.Default.VisibleColumns ?? string.Empty;
-            var visibleSet = new HashSet<string>(savedSetting.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries));
+            var visibleSet = ParseColumns(Settings.Default.VisibleColumns);
 
             // Map: Display Name (Spaces) -> (C# Property, DICOM Tag)
             var definitions = new List<(string Display, string Prop, string Tag)>
@@ -47,8 +65,9 @@ namespace MWL4
                 ("Contrast Allergies", "Allergies", "(0010,2110)"),
                 ("Medical Alerts", "MedicalAlerts", "(0010,2000)"),
 
+                ("Specific Character Set", "SpecificCharacterSet", "(0008,0005)"),
                 ("Accession Number", "AccessionNumber", "(0008,0050)"),
-                ("Requesting Physician", "RequestingPhysician", "(0032,1032)"), // New
+                ("Requesting Physician", "RequestingPhysician", "(0032,1032)"),
                 ("Requested Procedure Description", "RequestedProcedureDescription", "(0032,1060)"),
                 ("Requested Procedure Code Sequence", "RequestedProcedureCodeSequence", "(0032,1064)"),
                 ("Requested Procedure ID", "RequestedProcedureID", "(0040,1001)"),
@@ -99,8 +118,38 @@ namespace MWL4
             ColumnsGrid.ItemsSource = _columns;
         }
 
+        private void ResetColumnsButton_Click(object sender, RoutedEventArgs e)
+        {
+            var defaults = ParseColumns(DefaultVisibleColumns);
+            foreach (var column in _columns)
+            {
+                column.IsVisible = defaults.Contains(column.BoundProperty);
+            }
+            ColumnsGrid.CommitEdit();
+            ColumnsGrid.Items.Refresh();
+            ColumnLayoutReset = true;
+        }
+
+        /// <summary>Parses a timeout box. Shows a warning and returns false if the value is outside min..3600.</summary>
+        private bool TryReadSeconds(TextBox box, string name, int min, out int value)
+        {
+            if (int.TryParse(box.Text?.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out value) && value >= min && value <= 3600)
+            {
+                return true;
+            }
+            MessageBox.Show(this, $"{name} must be a whole number of seconds between {min} and 3600.", "Warning",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            box.Focus();
+            box.SelectAll();
+            return false;
+        }
+
         private void OkButton_Click(object sender, RoutedEventArgs e)
         {
+            if (!TryReadSeconds(ConnectionTimeoutBox, "Connection timeout", 1, out var connectSeconds)) return;
+            if (!TryReadSeconds(AssociationTimeoutBox, "Association timeout", 1, out var assocSeconds)) return;
+            if (!TryReadSeconds(ResponseTimeoutBox, "Response timeout", 0, out var responseSeconds)) return;
+
             var visibleNames = _columns
                 .Where(c => c.IsVisible)
                 .Select(c => c.BoundProperty)
@@ -109,6 +158,14 @@ namespace MWL4
             Settings.Default.VisibleColumns = string.Join(";", visibleNames);
             Settings.Default.Client_LogDimseDatasets = LogDimseDatasets.IsChecked == true;
             Settings.Default.Client_LogDataPDUs = LogDataPDUs.IsChecked == true;
+            Settings.Default.ConnectionTimeoutSeconds = connectSeconds;
+            Settings.Default.AssociationTimeoutSeconds = assocSeconds;
+            Settings.Default.ResponseTimeoutSeconds = responseSeconds;
+            Settings.Default.CharacterSet = CharacterSetBox.SelectedValue as string ?? "Auto";
+            if (ColumnLayoutReset)
+            {
+                Settings.Default.ColumnLayout = string.Empty;
+            }
             Settings.Default.Save();
 
             DialogResult = true;

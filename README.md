@@ -1,6 +1,6 @@
 # <img src="icon.jfif" width="48" height="48" alt="App Icon" style="vertical-align: middle;"> DICOM Modality Worklist Tester
 
-![Version](https://img.shields.io/badge/version-1.2.1-blue)
+![Version](https://img.shields.io/badge/version-1.3.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![.NET Framework](https://img.shields.io/badge/.NET-4.8-purple)
@@ -27,9 +27,14 @@ Built on the robust **Fellow Oak DICOM (fo-dicom)** library, this tool provides 
 
 * **Zero Dependencies:** Built on .NET 4.8 (included natively in Windows 10 and 11). No external runtime installation is required.
 * **Flexible Deployment:** Available as a portable executable or MSI installer.
-* **Customizable Results:** Select exactly which DICOM tags to display in the results table via the Settings menu. Your preferences are saved between sessions.
+* **Customizable Results:** Select exactly which DICOM tags to display in the results table via the Settings menu. Column order and widths are saved between sessions, and **Reset to default** restores the original table.
+* **Filter and Details:** Filter the returned rows by text (**File -> View Filter Results**, Ctrl+F), and double-click a row to see the complete returned dataset, including sequences and private tags.
+* **Built-in Help:** **Help -> Help** (F1) opens a guide to every function, with a troubleshooting section.
+* **Connection Profiles:** Save the settings for several worklist servers under a name and switch between them.
 * **Connectivity Tools:** Integrated network **Ping** and DICOM Verification (**C-ECHO**) to troubleshoot connection issues before querying.
-* **Secure:** Full support for **TLS** (Transport Layer Security) for testing secure DICOM connections.
+* **Cancel and Timeouts:** Cancel a running query or echo, and set the connection, association and response timeouts.
+* **Query Statistics:** The status bar shows the time, the number of responses (and FF01 warnings) and the final status of the last query.
+* **Secure:** Full support for **TLS** (Transport Layer Security), with an option to accept self-signed server certificates and to authenticate with a client certificate from the Windows certificate store.
 * **Deep Logging:** Extensive logging settings to analyze communication traffic and debug DICOM associations.
 * **Open Source:** Free to use, modify, and distribute under the MIT License.
 
@@ -43,6 +48,7 @@ The application handles the following DICOM tags. You can configure which of the
 
 | Tag Name | Tag ID | Description |
 | :--- | :--- | :--- |
+| `SpecificCharacterSet` | (0008,0005) | Specific Character Set of the response |
 | `PatientName` | (0010,0010) | Patient's Name |
 | `PatientID` | (0010,0020) | Patient ID |
 | `PatientBirthDate` | (0010,0030) | Patient's Birth Date |
@@ -111,13 +117,35 @@ This is a standard warning for unsigned software and does not indicate a securit
 
 ## Usage
 
-1. **Configure Connection:** Enter the IP, Port, and AE Title of the target Worklist SCP (RIS/PACS).
+1. **Configure Connection:** Enter the IP, Port, and AE Title of the target Worklist SCP (RIS/PACS). For TLS, check **Use TLS** and open **TLS options...** to accept self-signed certificates or pick a client certificate.
 2. **Set Local AE:** Configure your local Calling AE Title.
-3. **Test Connection:** Use the **Ping** or **DICOM Echo** buttons to verify network visibility.
-4. **Query:** Enter search criteria (e.g., Modality, Date, or Patient Name) and execute the query.
-5. **Review:** Check the results list. You can customize visible columns via **File -> Settings**.
+3. **Save a Profile (optional):** Type a name in the **Profile** box and click **Save**. Pick the profile later to restore all connection settings.
+4. **Test Connection:** Use the **Ping** or **DICOM Echo** buttons to verify network visibility.
+5. **Query:** Enter search criteria (e.g., Modality, Date, or Patient Name) and execute the query. Use **Cancel** to stop a slow query.
+6. **Review:** Check the results list. Use **File -> View Filter Results** (Ctrl+F) to show the filter bar and narrow it down, and double-click a row to see the full dataset. You can customize visible columns, timeouts and the character set via **File -> Settings**.
+
+Press **F1** or choose **Help -> Help** for the built-in guide.
 
 ## Changelog
+
+### 1.3.0
+
+**New**
+* Row details: double-click a row to see the complete returned dataset as a tree, with all sequences, items and private or unknown tags. The dataset can be copied as text.
+* Cancel button for a running query or echo. Rows already received are kept.
+* Configurable connection, association and response timeouts (**File -> Settings -> Network**). A query or echo that times out is now ended right away instead of waiting for the server.
+* TLS options: accept self-signed or invalid server certificates, and authenticate with a client certificate from the Windows certificate store (Current User\Personal).
+* Connection profiles: save and switch between named server configurations (Calling AET, AET, host, port and TLS options).
+* Character set option (**File -> Settings -> Query**): Auto (as before), ISO_IR 100 (Latin-1) or ISO_IR 192 (UTF-8).
+* New result column: Character Set (0008,0005) of each response.
+* Query statistics in the status bar: elapsed time, number of responses, FF01 warnings and the final status code.
+* Filter bar above the results table. It searches the visible columns and is not case sensitive. It is hidden by default; show or hide it with **File -> View Filter Results** (Ctrl+F). Hiding it clears the filter.
+* In-app help guide: **Help -> Help** (F1).
+* The order and width of the result table columns are saved between sessions.
+* **Reset to default** in the Settings dialog restores the default visible columns and the original column order and widths.
+
+**Changed**
+* The Server panel has a cleaner layout with the new Profile and TLS options controls.
 
 ### 1.2.1
 

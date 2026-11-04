@@ -59,6 +59,15 @@ namespace DMWLT4.Properties
             set => this["ResponseTimeoutSeconds"] = value;
         }
 
+        /// <summary>Extra query keys shown in the Query panel: QueryKeyDefinition Ids, ';'-separated.</summary>
+        [UserScopedSetting]
+        [DefaultSettingValue("")]
+        public string ExtraQueryKeys
+        {
+            get => (string)this["ExtraQueryKeys"];
+            set => this["ExtraQueryKeys"] = value;
+        }
+
         /// <summary>Specific Character Set for queries: "Auto", "ISO_IR 100" or "ISO_IR 192".</summary>
         [UserScopedSetting]
         [DefaultSettingValue("Auto")]

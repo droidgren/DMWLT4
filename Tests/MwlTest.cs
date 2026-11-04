@@ -50,6 +50,7 @@ static class Scp
                 { DicomTag.ScheduledProcedureStepStartTime, "100000" },
                 { DicomTag.ScheduledProcedureStepID, "SPS" + id },
                 { DicomTag.CommentsOnTheScheduledProcedureStep, comments },
+                { DicomTag.ScheduledProcedureStepStatus, id == "3" ? "ARRIVED" : "SCHEDULED" },
             };
             ds.Add(new DicomSequence(DicomTag.ScheduledProcedureStepSequence, sps));
             return ds;
@@ -77,6 +78,10 @@ static class Scp
         var isps = item.GetSequence(DicomTag.ScheduledProcedureStepSequence).Items[0];
         var mod = Str(rs, DicomTag.Modality);
         if (mod != "" && mod != Str(isps, DicomTag.Modality)) return false;
+        var acc = Str(req, DicomTag.AccessionNumber);
+        if (acc != "" && acc != Str(item, DicomTag.AccessionNumber)) return false;
+        var spsStatus = Str(rs, DicomTag.ScheduledProcedureStepStatus);
+        if (spsStatus != "" && spsStatus != Str(isps, DicomTag.ScheduledProcedureStepStatus)) return false;
         var range = Str(rs, DicomTag.ScheduledProcedureStepStartDate);
         if (range != "")
         {
@@ -229,6 +234,7 @@ static class Program
         settings["TlsIgnoreCertErrors"] = false;
         settings["TlsClientCertThumbprint"] = "";
         settings["ShowFilterBar"] = true;
+        settings["ExtraQueryKeys"] = "";
 
         var vm = new MainViewModel
         {
@@ -669,6 +675,115 @@ static class Program
             Check("Going back to the first topic scrolls to the top", sv?.VerticalOffset == 0, sv?.VerticalOffset.ToString());
             help.Close();
         }
+
+        await RunQueryKeyTests(vm, settings);
+    }
+
+    static QueryKeyField Field(MainViewModel vm, string id) => vm.ExtraQueryFields.FirstOrDefault(f => f.Definition.Id == id);
+
+    static async Task RunQueryKeyTests(MainViewModel vm, ApplicationSettingsBase settings)
+    {
+        Console.WriteLine("\n24. Extra query keys");
+        Check("No extra query fields by default", vm.ExtraQueryFields.Count == 0 && (string)settings.Properties["ExtraQueryKeys"].DefaultValue == "");
+        Check("16 extra query keys are available", MWL4.Models.QueryKeyDefinition.All.Count == 16);
+        settings["ExtraQueryKeys"] = "ScheduledProcedureStepStatus;AccessionNumber;ReferringPhysicianName;Unknown";
+        vm.RefreshQueryKeys();
+        Check("Fields are created from the setting in definition order (unknown ids ignored)",
+              string.Join(",", vm.ExtraQueryFields.Select(f => f.Definition.Id)) == "AccessionNumber,ReferringPhysicianName,ScheduledProcedureStepStatus",
+              string.Join(",", vm.ExtraQueryFields.Select(f => f.Definition.Id)));
+
+        vm.StartDate = null; vm.EndDate = null;
+        await Run(vm, vm.QueryCommand);
+        var req = LastFind();
+        Check("Empty extra keys are sent as empty return keys", Str(req, DicomTag.AccessionNumber) == "" && req.Contains(DicomTag.ReferringPhysicianName));
+        Check("No extra key -> all 3 rows", vm.WorklistResults.Count == 3, $"{vm.WorklistResults.Count} rows");
+
+        Field(vm, "AccessionNumber").Value = " ACC2 ";
+        await Run(vm, vm.QueryCommand);
+        Check("Accession Number is sent trimmed", Str(LastFind(), DicomTag.AccessionNumber) == "ACC2", Str(LastFind(), DicomTag.AccessionNumber));
+        Check("Accession Number matches only Doe^John", vm.WorklistResults.Count == 1 && vm.WorklistResults[0].PatientName == "Doe^John",
+              string.Join(",", vm.WorklistResults.Select(r => r.PatientName)));
+        Field(vm, "AccessionNumber").Value = "";
+
+        Field(vm, "ScheduledProcedureStepStatus").Value = "arrived";
+        await Run(vm, vm.QueryCommand);
+        Check("SPS Status is sent upper case inside the SPS item", SpsStr(LastFind(), DicomTag.ScheduledProcedureStepStatus) == "ARRIVED",
+              SpsStr(LastFind(), DicomTag.ScheduledProcedureStepStatus));
+        Check("SPS Status is not sent at top level", !LastFind().Contains(DicomTag.ScheduledProcedureStepStatus));
+        Check("SPS Status ARRIVED matches only Smith^Bob", vm.WorklistResults.Count == 1 && vm.WorklistResults[0].PatientName == "Smith^Bob",
+              string.Join(",", vm.WorklistResults.Select(r => r.PatientName)));
+        Field(vm, "ScheduledProcedureStepStatus").Value = "";
+
+        Field(vm, "ReferringPhysicianName").Value = "Åström^Erik";
+        await Run(vm, vm.QueryCommand);
+        Check("Non-ASCII extra key sets Specific Character Set ISO_IR 100", Str(LastFind(), DicomTag.SpecificCharacterSet) == "ISO_IR 100",
+              Str(LastFind(), DicomTag.SpecificCharacterSet));
+        Check("Referring Physician sent unchanged (no wildcard added)", Str(LastFind(), DicomTag.ReferringPhysicianName) == "Åström^Erik",
+              Str(LastFind(), DicomTag.ReferringPhysicianName));
+
+        settings["ExtraQueryKeys"] = "ReferringPhysicianName;PatientBirthDate;ScheduledProcedureStepStartTime;StudyInstanceUID";
+        vm.RefreshQueryKeys();
+        Check("Typed values are kept when the key list changes", Field(vm, "ReferringPhysicianName")?.Value == "Åström^Erik");
+        Check("Removed keys disappear", Field(vm, "AccessionNumber") == null && vm.ExtraQueryFields.Count == 4);
+        Field(vm, "ReferringPhysicianName").Value = "";
+
+        var before = FindCount();
+        Field(vm, "PatientBirthDate").Value = "2026";
+        var msgs = await Run(vm, vm.QueryCommand);
+        Check("Invalid birth date gives a warning and sends no query",
+              FindCount() == before && msgs.Any(m => m.StartsWith("[Warning] Birth Date: '2026' is not valid")), string.Join("; ", msgs));
+        Field(vm, "PatientBirthDate").Value = "19800101-19901231";
+        await Run(vm, vm.QueryCommand);
+        Check("Birth date range is sent", Str(LastFind(), DicomTag.PatientBirthDate) == "19800101-19901231", Str(LastFind(), DicomTag.PatientBirthDate));
+        Field(vm, "PatientBirthDate").Value = "";
+
+        Field(vm, "ScheduledProcedureStepStartTime").Value = "0800-1200";
+        await Run(vm, vm.QueryCommand);
+        Check("Time range is sent in the SPS item", SpsStr(LastFind(), DicomTag.ScheduledProcedureStepStartTime) == "0800-1200");
+        before = FindCount();
+        Field(vm, "ScheduledProcedureStepStartTime").Value = "8 am";
+        msgs = await Run(vm, vm.QueryCommand);
+        Check("Invalid time is rejected", FindCount() == before && msgs.Any(m => m.Contains("SPS Start Time")), string.Join("; ", msgs));
+        Field(vm, "ScheduledProcedureStepStartTime").Value = "";
+
+        before = FindCount();
+        Field(vm, "StudyInstanceUID").Value = "1.2.3*";
+        msgs = await Run(vm, vm.QueryCommand);
+        Check("Wildcard in a UID key is rejected", FindCount() == before && msgs.Any(m => m.Contains("Study Instance UID")), string.Join("; ", msgs));
+        Field(vm, "StudyInstanceUID").Value = "1.2.840.10008.1";
+        await Run(vm, vm.QueryCommand);
+        Check("Valid UID is sent", Str(LastFind(), DicomTag.StudyInstanceUID) == "1.2.840.10008.1");
+        Field(vm, "StudyInstanceUID").Value = "";
+
+        Console.WriteLine("\n25. Settings dialog: query keys tab");
+        settings["ExtraQueryKeys"] = "AccessionNumber;PatientSex";
+        var keysBefore = (string)settings["ExtraQueryKeys"];
+        List<SettingsDialog.QueryKeySetting> listed = null;
+        List<string> checkedAfterClear = null;
+        var dlg = new SettingsDialog();
+        dlg.Loaded += (s, e) =>
+        {
+            var grid = (DataGrid)dlg.FindName("QueryKeysGrid");
+            listed = ((List<SettingsDialog.QueryKeySetting>)grid.ItemsSource).ToList();
+            FindButton(dlg, "Clear all").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            checkedAfterClear = listed.Where(k => k.IsSelected).Select(k => k.Id).ToList();
+            listed.First(k => k.Id == "AdmissionID").IsSelected = true;
+            var cancel = FindButton(dlg, "Cancel");
+            dlg.Dispatcher.BeginInvoke(new Action(() => cancel.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent))));
+        };
+        dlg.ShowDialog();
+        Check("Query tab lists all 16 keys", listed?.Count == 16, listed?.Count.ToString());
+        Check("Clear all unchecks every key", checkedAfterClear != null && checkedAfterClear.Count == 0);
+        Check("Cancel keeps the stored query keys", (string)settings["ExtraQueryKeys"] == keysBefore, (string)settings["ExtraQueryKeys"]);
+        var dlg4 = new SettingsDialog();
+        var listed4 = (List<SettingsDialog.QueryKeySetting>)((DataGrid)dlg4.FindName("QueryKeysGrid")).ItemsSource;
+        Check("Dialog checks the stored keys", string.Join(",", listed4.Where(k => k.IsSelected).Select(k => k.Id)) == "AccessionNumber,PatientSex",
+              string.Join(",", listed4.Where(k => k.IsSelected).Select(k => k.Id)));
+        dlg4.Close();
+
+        settings["ExtraQueryKeys"] = "";
+        vm.RefreshQueryKeys();
+        Check("Empty setting removes all extra fields", vm.ExtraQueryFields.Count == 0);
     }
 
     static T FindVisualChild<T>(DependencyObject parent) where T : DependencyObject

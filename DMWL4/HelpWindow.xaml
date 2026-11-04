@@ -179,6 +179,21 @@
                         How exactly a server matches (case sensitivity, wildcards in other fields) depends on the
                         server. DMWLT sends what you type and shows what the server returns.
                     </Paragraph>
+                    <Paragraph Style="{StaticResource H2}">Additional query keys</Paragraph>
+                    <Paragraph>
+                        Need to match on something else, such as Accession Number, Requested Procedure ID, SPS Status or
+                        Referring Physician? Open <Bold>File → Settings → Query</Bold> and check the keys you want under
+                        <Bold>Additional query keys</Bold>. Each checked key gets its own field in the Query panel,
+                        below Station Name. Hover over a field to see its DICOM tag and format.
+                    </Paragraph>
+                    <List>
+                        <ListItem><Paragraph>An empty field is not used for matching; the attribute is still requested, so you see what the server returns for it.</Paragraph></ListItem>
+                        <ListItem><Paragraph>Text is sent as typed. Unlike Name, no <Bold>*</Bold> is added, so you can test exact matching. Type <Bold>*</Bold> or <Bold>?</Bold> yourself for wildcard matching.</Paragraph></ListItem>
+                        <ListItem><Paragraph>Codes (Priority, Patient Sex, SPS Status) are converted to upper case, e.g. "scheduled" is sent as SCHEDULED.</Paragraph></ListItem>
+                        <ListItem><Paragraph>Dates are written <Italic>yyyyMMdd</Italic> or as a range <Italic>yyyyMMdd-yyyyMMdd</Italic> (either end may be left out). Times are written <Italic>HHmm</Italic> or <Italic>HHmmss</Italic>, or as a range such as <Italic>0800-1200</Italic>.</Paragraph></ListItem>
+                        <ListItem><Paragraph>Study Instance UID must be an exact UID; wildcards are not allowed for UIDs.</Paragraph></ListItem>
+                        <ListItem><Paragraph>A value in the wrong format gives a warning, and the query is not sent.</Paragraph></ListItem>
+                    </List>
                     <Paragraph Style="{StaticResource H2}">Buttons</Paragraph>
                     <List>
                         <ListItem><Paragraph><Bold>Query</Bold> (or Enter) clears the results and sends a new query.</Paragraph></ListItem>
@@ -228,7 +243,7 @@
                 <!-- ===================================================================== -->
                 <Section Tag="Settings">
                     <Paragraph Style="{StaticResource H1}">Settings</Paragraph>
-                    <Paragraph>Open <Bold>File → Settings</Bold>. Changes are applied with <Bold>OK</Bold>; <Bold>Cancel</Bold> discards them.</Paragraph>
+                    <Paragraph>Open <Bold>File → Settings</Bold>. The settings are on four tabs: Result Columns, Query, Network and Logging. Changes are applied with <Bold>OK</Bold>; <Bold>Cancel</Bold> discards them.</Paragraph>
                     <Table>
                         <Table.Columns>
                             <TableColumn Width="190"/>
@@ -245,6 +260,8 @@
                                 <TableCell><Paragraph>How long to wait for the next response to an echo or query (default 30 s, 0 = no limit). The time starts again after each worklist item received, so long worklists are not cut off as long as items keep arriving.</Paragraph></TableCell></TableRow>
                             <TableRow><TableCell><Paragraph><Bold>Specific Character Set</Bold></Paragraph></TableCell>
                                 <TableCell><Paragraph>Auto (only when needed), or always ISO_IR 100 (Latin-1) or ISO_IR 192 (UTF-8).</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Additional query keys</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>Extra matching keys shown in the Query panel. <Bold>Clear all</Bold> removes them. See <Italic>Querying the worklist</Italic>.</Paragraph></TableCell></TableRow>
                             <TableRow><TableCell><Paragraph><Bold>Log DIMSE Datasets</Bold></Paragraph></TableCell>
                                 <TableCell><Paragraph>Write every request and response dataset to the log. Useful when you need to see exactly what was sent.</Paragraph></TableCell></TableRow>
                             <TableRow><TableCell><Paragraph><Bold>Log Data PDUs</Bold></Paragraph></TableCell>

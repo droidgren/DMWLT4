@@ -23,7 +23,8 @@ namespace MWL4.Models
         public string CurrentPatientLocation { get; set; }
         public string StudyInstanceUID { get; set; }
 
-        public string RequestingPhysician { get; set; } // New (0032,1032)
+        public string ReferringPhysicianName { get; set; } // (0008,0090)
+        public string RequestingPhysician { get; set; } // (0032,1032)
         public string RequestedProcedureID { get; set; }
         public string RequestedProcedureDescription { get; set; }
         public string RequestedProcedureCodeSequence { get; set; }

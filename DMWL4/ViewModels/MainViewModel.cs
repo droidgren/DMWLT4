@@ -137,6 +137,28 @@ namespace MWL4.ViewModels
 
         private DateTime? _endDate = DateTime.Today;
         public DateTime? EndDate { get => _endDate; set { _endDate = value; OnPropertyChanged(); } }
+
+        /// <summary>Extra query keys chosen in Settings -> Query, in the order of QueryKeyDefinition.All.</summary>
+        public ObservableCollection<QueryKeyField> ExtraQueryFields { get; } = new ObservableCollection<QueryKeyField>();
+
+        /// <summary>
+        /// Rebuilds ExtraQueryFields from the ExtraQueryKeys setting. Values already typed in keys that remain are kept.
+        /// </summary>
+        public void RefreshQueryKeys()
+        {
+            var chosen = new HashSet<string>((Settings.Default.ExtraQueryKeys ?? string.Empty)
+                .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries));
+            var previous = ExtraQueryFields.ToDictionary(f => f.Definition.Id, f => f.Value);
+
+            ExtraQueryFields.Clear();
+            foreach (var def in QueryKeyDefinition.All.Where(d => chosen.Contains(d.Id)))
+            {
+                ExtraQueryFields.Add(new QueryKeyField(def)
+                {
+                    Value = previous.TryGetValue(def.Id, out var v) ? v : string.Empty
+                });
+            }
+        }
         #endregion
 
         #region Properties - Results / status
@@ -246,6 +268,7 @@ namespace MWL4.ViewModels
             LoadSettings();
             LoadProfiles();
             UpdateFilterProperties();
+            RefreshQueryKeys();
 
             // Network commands are disabled while another network operation is running,
             // otherwise e.g. a double-clicked Query runs two C-FINDs into the same result list.
@@ -645,6 +668,16 @@ namespace MWL4.ViewModels
                 return;
             }
 
+            foreach (var field in ExtraQueryFields)
+            {
+                if (field.Definition.Normalize(field.Value) == null)
+                {
+                    ShowMessage($"{field.Definition.Label}: '{field.Value.Trim()}' is not valid.\nExpected: {field.Definition.FormatText}.",
+                        MessageBoxImage.Warning);
+                    return;
+                }
+            }
+
             WorklistResults.Clear();
             SelectedCount = 0;
             _statusSuffix = string.Empty;
@@ -880,6 +913,7 @@ namespace MWL4.ViewModels
                 AdmissionID = ds.GetStringSafe(DicomTag.AdmissionID),
                 CurrentPatientLocation = ds.GetStringSafe(DicomTag.CurrentPatientLocation),
 
+                ReferringPhysicianName = ds.GetStringSafe(DicomTag.ReferringPhysicianName),
                 RequestingPhysician = ds.GetStringSafe(DicomTag.RequestingPhysician),
                 RequestedProcedureID = ds.GetStringSafe(DicomTag.RequestedProcedureID),
                 RequestedProcedureDescription = ds.GetStringSafe(DicomTag.RequestedProcedureDescription),
@@ -970,7 +1004,14 @@ namespace MWL4.ViewModels
             var ds = new DicomDataset();
 
             // Specific Character Set must be added before the text elements so that they are encoded with it.
-            var charset = ResolveCharacterSet(patientName, patientId, stationName);
+            // Extra query keys from Settings -> Query (already validated in DoQueryAsync).
+            var extraKeys = ExtraQueryFields
+                .Select(f => (f.Definition, Value: f.Definition.Normalize(f.Value)))
+                .Where(x => !string.IsNullOrEmpty(x.Value))
+                .ToList();
+
+            var charset = ResolveCharacterSet(new[] { patientName, patientId, stationName }
+                .Concat(extraKeys.Select(x => x.Value)).ToArray());
             if (charset != null)
             {
                 ds.Add(DicomTag.SpecificCharacterSet, charset);
@@ -992,6 +1033,7 @@ namespace MWL4.ViewModels
             ds.Add(DicomTag.CurrentPatientLocation, string.Empty);
             ds.Add(DicomTag.StudyInstanceUID, string.Empty);
 
+            ds.Add(DicomTag.ReferringPhysicianName, string.Empty);
             ds.Add(DicomTag.RequestingPhysician, string.Empty);
             ds.Add(DicomTag.RequestedProcedureDescription, string.Empty);
             ds.Add(DicomTag.RequestedProcedureID, string.Empty);
@@ -1032,6 +1074,15 @@ namespace MWL4.ViewModels
                 { DicomTag.CodingSchemeDesignator, string.Empty }
             };
             sps.Add(new DicomSequence(DicomTag.ScheduledProtocolCodeSequence, protoItem));
+
+            // Fill in the extra matching keys. Most of them are already present as empty return keys.
+            foreach (var (definition, value) in extraKeys)
+            {
+                var target = definition.Level == QueryKeyLevel.Sps ? sps : ds;
+                target.AddOrUpdate(definition.Tag, value);
+                _logger.Debug("Extra query key {key} {tag} = {value}", definition.Id, definition.TagText, value);
+            }
+
             ds.Add(new DicomSequence(DicomTag.ScheduledProcedureStepSequence, sps));
 
             return new DicomCFindRequest(DicomQueryRetrieveLevel.NotApplicable) { Dataset = ds };

@@ -77,6 +77,7 @@ namespace MWL4
                 }
                 UpdateColumnVisibility();
                 _viewModel.RefreshFilter();
+                _viewModel.RefreshQueryKeys();
             }
         }
 

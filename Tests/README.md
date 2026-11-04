@@ -30,6 +30,7 @@ Requirements: Visual Studio (or Build Tools) with MSBuild, and .NET Framework 4.
 - TLS against a mock SCP with a self-signed certificate (skipped if no certificate can be created).
 - Saving, applying and resetting the column layout.
 - View Filter Results toggle, and the help window (topics and navigation).
+- Additional query keys: fields from the setting, top-level and SPS keys, upper-casing, character set, date/time/UID validation, and the Settings Query tab.
 
 Not covered: clicking the real main window, picking a client certificate from the store, and real worklist servers.
 

@@ -231,7 +231,9 @@
     </Compile>
     <Compile Include="ViewModels\MainViewModel.cs" />
     <Compile Include="ViewModels\DatasetNode.cs" />
+    <Compile Include="ViewModels\QueryKeyField.cs" />
     <Compile Include="Models\ConnectionProfile.cs" />
+    <Compile Include="Models\QueryKeyDefinition.cs" />
     <Compile Include="ViewModels\AboutViewModel.cs" />
     <Compile Include="Extensions\DicomExtensions.cs" />
     <Compile Include="Models\WorklistItem.cs" />

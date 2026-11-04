@@ -3,109 +3,152 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:p="clr-namespace:DMWLT4.Properties"
         Title="Settings"
-        Height="720"
-        Width="500"
+        Height="600"
+        Width="600"
+        MinHeight="400"
+        MinWidth="450"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize">
     <Grid Margin="15">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <GroupBox Header="Result Table Columns" Grid.Row="0" Margin="0,0,0,10">
-            <DockPanel>
-                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0">
-                    <Button x:Name="ResetColumnsButton" Content="Reset to default" Padding="10,2" Click="ResetColumnsButton_Click"
-                            ToolTip="Show the default columns and restore the original column order and widths"/>
+        <TabControl x:Name="SettingsTabs" Grid.Row="0" Margin="0,0,0,10">
+
+            <!-- ============================================================ -->
+            <TabItem Header="Result Columns">
+                <DockPanel Margin="5">
+                    <TextBlock DockPanel.Dock="Top" Margin="0,0,0,5" TextWrapping="Wrap"
+                               Text="Choose which attributes are shown in the results table."/>
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0">
+                        <Button x:Name="ResetColumnsButton" Content="Reset to default" Padding="10,2" Click="ResetColumnsButton_Click"
+                                ToolTip="Show the default columns and restore the original column order and widths"/>
+                    </StackPanel>
+                    <DataGrid x:Name="ColumnsGrid"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserResizeRows="False"
+                              GridLinesVisibility="Horizontal"
+                              BorderThickness="1"
+                              Background="White">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Show" Width="50">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsVisible, UpdateSourceTrigger=PropertyChanged}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTextColumn Binding="{Binding PropertyName}" Header="Property Name" Width="2*" IsReadOnly="True"/>
+
+                            <DataGridTextColumn Binding="{Binding TagNumber}" Header="Tag no" Width="*" IsReadOnly="True"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <!-- ============================================================ -->
+            <TabItem Header="Query">
+                <DockPanel Margin="5">
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Label Content="Specific Character Set:"/>
+                        <ComboBox Grid.Column="1" x:Name="CharacterSetBox" VerticalAlignment="Center" Margin="5,0,0,0"
+                                  SelectedValuePath="Tag"
+                                  ToolTip="Character set (0008,0005) sent in the query">
+                            <ComboBoxItem Content="Auto (only when the query has non-ASCII characters)" Tag="Auto"/>
+                            <ComboBoxItem Content="ISO_IR 100 (Latin-1)" Tag="ISO_IR 100"/>
+                            <ComboBoxItem Content="ISO_IR 192 (UTF-8)" Tag="ISO_IR 192"/>
+                        </ComboBox>
+                    </Grid>
+
+                    <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Text="Additional query keys"/>
+                    <TextBlock DockPanel.Dock="Top" Margin="0,2,0,5" TextWrapping="Wrap" Foreground="#FF505050"
+                               Text="Checked keys get an input field in the Query panel, below Station Name. An empty field is not used for matching."/>
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0">
+                        <Button x:Name="ClearQueryKeysButton" Content="Clear all" Padding="10,2" Click="ClearQueryKeysButton_Click"
+                                ToolTip="Remove all additional query keys from the Query panel"/>
+                    </StackPanel>
+                    <DataGrid x:Name="QueryKeysGrid"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserResizeRows="False"
+                              CanUserSortColumns="False"
+                              GridLinesVisibility="Horizontal"
+                              BorderThickness="1"
+                              Background="White">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Show" Width="50">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Binding="{Binding Label}" Header="Key" Width="Auto" IsReadOnly="True"/>
+                            <DataGridTextColumn Binding="{Binding TagText}" Header="Tag" Width="Auto" IsReadOnly="True"/>
+                            <DataGridTextColumn Binding="{Binding FormatText}" Header="Format" Width="*" IsReadOnly="True"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <!-- ============================================================ -->
+            <TabItem Header="Network">
+                <Grid Margin="5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Label Grid.Row="0" Content="Connection timeout:"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" x:Name="ConnectionTimeoutBox" VerticalAlignment="Center" Margin="0,2"/>
+                    <Label Grid.Row="0" Grid.Column="2" Content="seconds (1-3600)"/>
+
+                    <Label Grid.Row="1" Content="Association timeout:"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" x:Name="AssociationTimeoutBox" VerticalAlignment="Center" Margin="0,2"
+                             ToolTip="Time to wait for the server to accept or reject the association"/>
+                    <Label Grid.Row="1" Grid.Column="2" Content="seconds (1-3600)"/>
+
+                    <Label Grid.Row="2" Content="Response (DIMSE) timeout:"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" x:Name="ResponseTimeoutBox" VerticalAlignment="Center" Margin="0,2"
+                             ToolTip="Time to wait for a response to a C-ECHO or C-FIND request"/>
+                    <Label Grid.Row="2" Grid.Column="2" Content="seconds (0 = no limit)"/>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================================================ -->
+            <TabItem Header="Logging">
+                <StackPanel Margin="5">
+                    <CheckBox x:Name="LogDimseDatasets"
+                              Content="Log DIMSE Datasets"
+                              Margin="0,0,0,5"/>
+                    <CheckBox x:Name="LogDataPDUs"
+                              Content="Log Data PDUs"/>
                 </StackPanel>
-                <DataGrid x:Name="ColumnsGrid"
-                          AutoGenerateColumns="False"
-                          CanUserAddRows="False"
-                          CanUserDeleteRows="False"
-                          CanUserResizeRows="False"
-                          GridLinesVisibility="Horizontal"
-                          BorderThickness="1"
-                          Background="White">
-                    <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="Show" Width="50">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <CheckBox IsChecked="{Binding IsVisible, UpdateSourceTrigger=PropertyChanged}"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+            </TabItem>
+        </TabControl>
 
-                        <DataGridTextColumn Binding="{Binding PropertyName}" Header="Property Name" Width="2*" IsReadOnly="True"/>
-
-                        <DataGridTextColumn Binding="{Binding TagNumber}" Header="Tag no" Width="*" IsReadOnly="True"/>
-                    </DataGrid.Columns>
-                </DataGrid>
-            </DockPanel>
-        </GroupBox>
-
-        <GroupBox Header="Network" Grid.Row="1" Margin="0,0,0,10">
-            <Grid Margin="5">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="70"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <Label Grid.Row="0" Content="Connection timeout:"/>
-                <TextBox Grid.Row="0" Grid.Column="1" x:Name="ConnectionTimeoutBox" VerticalAlignment="Center" Margin="0,2"/>
-                <Label Grid.Row="0" Grid.Column="2" Content="seconds (1-3600)"/>
-
-                <Label Grid.Row="1" Content="Association timeout:"/>
-                <TextBox Grid.Row="1" Grid.Column="1" x:Name="AssociationTimeoutBox" VerticalAlignment="Center" Margin="0,2"
-                         ToolTip="Time to wait for the server to accept or reject the association"/>
-                <Label Grid.Row="1" Grid.Column="2" Content="seconds (1-3600)"/>
-
-                <Label Grid.Row="2" Content="Response (DIMSE) timeout:"/>
-                <TextBox Grid.Row="2" Grid.Column="1" x:Name="ResponseTimeoutBox" VerticalAlignment="Center" Margin="0,2"
-                         ToolTip="Time to wait for a response to a C-ECHO or C-FIND request"/>
-                <Label Grid.Row="2" Grid.Column="2" Content="seconds (0 = no limit)"/>
-            </Grid>
-        </GroupBox>
-
-        <GroupBox Header="Query" Grid.Row="2" Margin="0,0,0,10">
-            <Grid Margin="5">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Label Content="Specific Character Set:"/>
-                <ComboBox Grid.Column="1" x:Name="CharacterSetBox" VerticalAlignment="Center" Margin="5,0,0,0"
-                          SelectedValuePath="Tag"
-                          ToolTip="Character set (0008,0005) sent in the query">
-                    <ComboBoxItem Content="Auto (only when the query has non-ASCII characters)" Tag="Auto"/>
-                    <ComboBoxItem Content="ISO_IR 100 (Latin-1)" Tag="ISO_IR 100"/>
-                    <ComboBoxItem Content="ISO_IR 192 (UTF-8)" Tag="ISO_IR 192"/>
-                </ComboBox>
-            </Grid>
-        </GroupBox>
-
-        <GroupBox Header="Logging" Grid.Row="3" Margin="0,0,0,10">
-            <StackPanel Margin="5">
-                <CheckBox x:Name="LogDimseDatasets"
-                          Content="Log DIMSE Datasets"
-                          Margin="0,0,0,5"/>
-                <CheckBox x:Name="LogDataPDUs"
-                          Content="Log Data PDUs"/>
-            </StackPanel>
-        </GroupBox>
-
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="OK" Click="OkButton_Click" Width="80" Height="25" Margin="0,0,10,0" IsDefault="True"/>
             <Button Content="Cancel" Click="CancelButton_Click" Width="80" Height="25" IsCancel="True"/>
         </StackPanel>

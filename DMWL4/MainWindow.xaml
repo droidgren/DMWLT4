@@ -121,12 +121,13 @@
             </DockPanel>
 
             <GroupBox Header="Query" Grid.Row="0" Grid.Column="1" Margin="0,0,0,8">
-                <Grid Margin="8">
+                <Grid Margin="8" Grid.IsSharedSizeScope="True">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="QueryLabel"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -152,13 +153,33 @@
                     <Label Content="Station Name:" Grid.Row="4"/>
                     <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding StationName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" Margin="0,0,0,4"/>
 
-                    <Label Content="Start Date:" Grid.Row="5"/>
-                    <DatePicker Grid.Row="5" Grid.Column="1" SelectedDate="{Binding StartDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" ToolTip="Leave empty for no lower limit"/>
+                    <!-- Extra query keys chosen in Settings -> Query -->
+                    <ScrollViewer Grid.Row="5" Grid.ColumnSpan="2" MaxHeight="130" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                        <ItemsControl x:Name="ExtraQueryKeysList" ItemsSource="{Binding ExtraQueryFields}" IsTabStop="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="QueryLabel"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="{Binding Label}" ToolTip="{Binding ToolTip}"/>
+                                        <TextBox Grid.Column="1" Text="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 VerticalAlignment="Center" Margin="0,0,0,4" ToolTip="{Binding ToolTip}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
 
-                    <Label Content="End Date:" Grid.Row="6"/>
-                    <DatePicker Grid.Row="6" Grid.Column="1" SelectedDate="{Binding EndDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" ToolTip="Leave empty for no upper limit"/>
+                    <Label Content="Start Date:" Grid.Row="6"/>
+                    <DatePicker Grid.Row="6" Grid.Column="1" SelectedDate="{Binding StartDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" ToolTip="Leave empty for no lower limit"/>
 
-                    <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                    <Label Content="End Date:" Grid.Row="7"/>
+                    <DatePicker Grid.Row="7" Grid.Column="1" SelectedDate="{Binding EndDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" ToolTip="Leave empty for no upper limit"/>
+
+                    <StackPanel Grid.Row="8" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
                         <Button Content="Query" Command="{Binding QueryCommand}" Width="100" Margin="0,0,8,0" IsDefault="True"/>
                         <Button Content="Cancel" Command="{Binding CancelCommand}" Width="100" Margin="0,0,8,0"
                                 ToolTip="Abort the running query or echo"/>
@@ -241,6 +262,11 @@
                             </DataGridTextColumn.Header>
                         </DataGridTextColumn>
 
+                        <DataGridTextColumn Binding="{Binding ReferringPhysicianName}">
+                            <DataGridTextColumn.Header>
+                                <TextBlock Text="Referring Physician" ToolTip="(0008,0090) Referring Physician's Name" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
                         <DataGridTextColumn Binding="{Binding RequestingPhysician}">
                             <DataGridTextColumn.Header>
                                 <TextBlock Text="Requesting Physician" ToolTip="(0032,1032) Requesting Physician" />

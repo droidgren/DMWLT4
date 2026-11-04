@@ -1,4 +1,5 @@
 using DMWLT4.Properties;
+using MWL4.Models;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -18,7 +19,18 @@ namespace MWL4
             public string TagNumber { get; set; }
         }
 
+        public class QueryKeySetting
+        {
+            public bool IsSelected { get; set; }
+            public QueryKeyDefinition Definition { get; set; }
+            public string Id => Definition.Id;
+            public string Label => Definition.Label;
+            public string TagText => Definition.TagText;
+            public string FormatText => Definition.FormatText;
+        }
+
         private List<ColumnSetting> _columns;
+        private List<QueryKeySetting> _queryKeys;
 
         /// <summary>True if "Reset to default" was used. The caller then restores the original column order and widths.</summary>
         public bool ColumnLayoutReset { get; private set; }
@@ -27,6 +39,7 @@ namespace MWL4
         {
             InitializeComponent();
             LoadColumns();
+            LoadQueryKeys();
 
             // All options are copied into the dialog and only written back on OK,
             // so that Cancel really discards the changes.
@@ -67,6 +80,7 @@ namespace MWL4
 
                 ("Specific Character Set", "SpecificCharacterSet", "(0008,0005)"),
                 ("Accession Number", "AccessionNumber", "(0008,0050)"),
+                ("Referring Physician", "ReferringPhysicianName", "(0008,0090)"),
                 ("Requesting Physician", "RequestingPhysician", "(0032,1032)"),
                 ("Requested Procedure Description", "RequestedProcedureDescription", "(0032,1060)"),
                 ("Requested Procedure Code Sequence", "RequestedProcedureCodeSequence", "(0032,1064)"),
@@ -118,6 +132,22 @@ namespace MWL4
             ColumnsGrid.ItemsSource = _columns;
         }
 
+        private void LoadQueryKeys()
+        {
+            var chosen = ParseColumns(Settings.Default.ExtraQueryKeys);
+            _queryKeys = QueryKeyDefinition.All
+                .Select(d => new QueryKeySetting { Definition = d, IsSelected = chosen.Contains(d.Id) })
+                .ToList();
+            QueryKeysGrid.ItemsSource = _queryKeys;
+        }
+
+        private void ClearQueryKeysButton_Click(object sender, RoutedEventArgs e)
+        {
+            foreach (var key in _queryKeys) key.IsSelected = false;
+            QueryKeysGrid.CommitEdit();
+            QueryKeysGrid.Items.Refresh();
+        }
+
         private void ResetColumnsButton_Click(object sender, RoutedEventArgs e)
         {
             var defaults = ParseColumns(DefaultVisibleColumns);
@@ -136,6 +166,15 @@ namespace MWL4
             if (int.TryParse(box.Text?.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out value) && value >= min && value <= 3600)
             {
                 return true;
+            }
+            // Show the tab with the invalid value first.
+            for (DependencyObject d = box; d != null; d = LogicalTreeHelper.GetParent(d))
+            {
+                if (d is TabItem tab)
+                {
+                    tab.IsSelected = true;
+                    break;
+                }
             }
             MessageBox.Show(this, $"{name} must be a whole number of seconds between {min} and 3600.", "Warning",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -162,6 +201,7 @@ namespace MWL4
             Settings.Default.AssociationTimeoutSeconds = assocSeconds;
             Settings.Default.ResponseTimeoutSeconds = responseSeconds;
             Settings.Default.CharacterSet = CharacterSetBox.SelectedValue as string ?? "Auto";
+            Settings.Default.ExtraQueryKeys = string.Join(";", _queryKeys.Where(k => k.IsSelected).Select(k => k.Id));
             if (ColumnLayoutReset)
             {
                 Settings.Default.ColumnLayout = string.Empty;

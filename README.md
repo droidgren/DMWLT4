@@ -1,6 +1,6 @@
 # <img src="icon.jfif" width="48" height="48" alt="App Icon" style="vertical-align: middle;"> DICOM Modality Worklist Tester
 
-![Version](https://img.shields.io/badge/version-1.3.0-blue)
+![Version](https://img.shields.io/badge/version-1.4.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![.NET Framework](https://img.shields.io/badge/.NET-4.8-purple)
@@ -28,6 +28,7 @@ Built on the robust **Fellow Oak DICOM (fo-dicom)** library, this tool provides 
 * **Zero Dependencies:** Built on .NET 4.8 (included natively in Windows 10 and 11). No external runtime installation is required.
 * **Flexible Deployment:** Available as a portable executable or MSI installer.
 * **Customizable Results:** Select exactly which DICOM tags to display in the results table via the Settings menu. Column order and widths are saved between sessions, and **Reset to default** restores the original table.
+* **Flexible Queries:** Besides name, patient ID, modality, station and date, add any of 16 extra matching keys (e.g. Accession Number, Requested Procedure ID, SPS Status, Referring Physician) to the Query panel in **File -> Settings -> Query**.
 * **Filter and Details:** Filter the returned rows by text (**File -> View Filter Results**, Ctrl+F), and double-click a row to see the complete returned dataset, including sequences and private tags.
 * **Built-in Help:** **Help -> Help** (F1) opens a guide to every function, with a troubleshooting section.
 * **Connection Profiles:** Save the settings for several worklist servers under a name and switch between them.
@@ -61,6 +62,7 @@ The application handles the following DICOM tags. You can configure which of the
 | `AccessionNumber` | (0008,0050) | Accession Number |
 | `StudyInstanceUID` | (0020,000D) | Study Instance UID |
 | `Modality` | (0008,0060) | Modality |
+| `ReferringPhysicianName` | (0008,0090) | Referring Physician's Name |
 | `RequestingPhysician` | (0032,1032) | Requesting Physician |
 | `RequestedProcedureDescription` | (0032,1060) | Requested Procedure Description |
 | `RequestedProcedureCodeSequence` | (0032,1064) | Requested Procedure Code Sequence |
@@ -121,12 +123,22 @@ This is a standard warning for unsigned software and does not indicate a securit
 2. **Set Local AE:** Configure your local Calling AE Title.
 3. **Save a Profile (optional):** Type a name in the **Profile** box and click **Save**. Pick the profile later to restore all connection settings.
 4. **Test Connection:** Use the **Ping** or **DICOM Echo** buttons to verify network visibility.
-5. **Query:** Enter search criteria (e.g., Modality, Date, or Patient Name) and execute the query. Use **Cancel** to stop a slow query.
+5. **Query:** Enter search criteria (e.g., Modality, Date, or Patient Name) and execute the query. Use **Cancel** to stop a slow query. To match on other attributes, add them under **File -> Settings -> Query -> Additional query keys**.
 6. **Review:** Check the results list. Use **File -> View Filter Results** (Ctrl+F) to show the filter bar and narrow it down, and double-click a row to see the full dataset. You can customize visible columns, timeouts and the character set via **File -> Settings**.
 
 Press **F1** or choose **Help -> Help** for the built-in guide.
 
 ## Changelog
+
+### 1.4.0
+
+**New**
+* Additional query keys: choose extra matching keys in **File -> Settings -> Query** and they appear as fields in the Query panel. Available: Accession Number, Referring Physician, Requesting Physician, Requested Procedure ID, Requested Procedure Priority, Admission ID, Current Patient Location, Study Instance UID, Patient Birth Date, Patient Sex, and in the Scheduled Procedure Step: SPS ID, SPS Status, SPS Description, SPS Location, Scheduled Performing Physician and SPS Start Time.
+  * Values are sent as typed (no automatic wildcard), codes in upper case. Dates and times can be ranges and are checked before the query is sent.
+* New result column: Referring Physician (0008,0090). It is now also requested in every query.
+
+**Changed**
+* The Settings dialog is organized in tabs: Result Columns, Query, Network and Logging.
 
 ### 1.3.0
 

@@ -2,12 +2,14 @@
 
 ![Version](https://img.shields.io/badge/version-1.4.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
-![.NET Framework](https://img.shields.io/badge/.NET-4.8-purple)
+![.NET Framework](https://img.shields.io/badge/platform-.NET%20Framework%204.8%20WPF-512BD4)
+![fo-dicom](https://img.shields.io/badge/fo--dicom-5.2.6-green)
 
 **DICOM Modality Worklist Tester** is a lightweight, standalone utility designed to simulate a Modality (SCU) for testing and verifying DICOM Modality Worklist (MWL) services on a PACS or RIS (SCP).
 
 Built on the robust **Fellow Oak DICOM (fo-dicom)** library, this tool provides a reliable way to query worklists without the need for complex installation or heavy runtimes.
+
+To test DICOM C-STORE and generate test images, see the companion tool [DCST4 – DICOM C-Store Tester 4](https://github.com/droidgren/DCST4).
 
 ## Table of Contents
 * [Features](#features)

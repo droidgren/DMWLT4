@@ -1,6 +1,6 @@
 # <img src="icon.jfif" width="48" height="48" alt="App Icon" style="vertical-align: middle;"> DICOM Modality Worklist Tester
 
-![Version](https://img.shields.io/badge/version-1.4.1-blue)
+![Version](https://img.shields.io/badge/version-1.4.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![.NET Framework](https://img.shields.io/badge/platform-.NET%20Framework%204.8%20WPF-512BD4)
 ![fo-dicom](https://img.shields.io/badge/fo--dicom-5.2.6-green)
@@ -155,6 +155,15 @@ To turn this off, untick **Show a window at startup when a new version is availa
 Opening **Help -> About** also asks GitHub and shows the result in that window, including if the check failed. Nothing is sent except an ordinary web request with the program's version as its User-Agent, and nothing is downloaded or installed.
 
 ## Changelog
+
+### 1.4.2
+
+**Fixes**
+* The Start menu shortcut shows the program's icon again. The 1.4.1 installer gave it a blank icon.
+* The installer puts `System.Net.Http.dll` in the `libs` folder with the other DLLs, instead of next to the program.
+
+**Changed**
+* The project file now uses the SDK-style format with PackageReference. This has no effect on how the program works.
 
 ### 1.4.1
 

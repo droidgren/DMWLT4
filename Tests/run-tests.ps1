@@ -19,7 +19,7 @@ if (-not $msbuild) { throw 'MSBuild not found. Install Visual Studio or Build To
 $csc = Join-Path (Split-Path $msbuild -Parent) 'Roslyn\csc.exe'
 
 Write-Host '== Building DMWLT4 (Release)'
-& $msbuild $sln /p:Configuration=Release /t:Rebuild /v:minimal /nologo
+& $msbuild $sln /restore /p:Configuration=Release /t:Rebuild /v:minimal /nologo
 if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
 
 # Run the harness next to the app's DLLs, with the app's binding redirects.

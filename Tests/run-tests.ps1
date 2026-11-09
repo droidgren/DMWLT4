@@ -33,7 +33,7 @@ $refs = @(
     "$ref\mscorlib.dll", "$ref\System.dll", "$ref\System.Core.dll", "$ref\System.Configuration.dll",
     "$ref\System.Xaml.dll", "$ref\WindowsBase.dll", "$ref\PresentationCore.dll", "$ref\PresentationFramework.dll",
     "$ref\Facades\netstandard.dll", "$ref\Facades\System.Runtime.dll", "$ref\Facades\System.Threading.Tasks.dll",
-    "$ref\Facades\System.Collections.dll",
+    "$ref\Facades\System.Collections.dll", "$ref\System.Net.Http.dll",
     "$out\DMWLT4.exe", "$out\libs\fo-dicom.core.dll", "$out\libs\Microsoft.Extensions.Logging.Abstractions.dll",
     "$out\libs\Microsoft.Bcl.AsyncInterfaces.dll", "$out\libs\System.Threading.Tasks.Extensions.dll",
     "$out\libs\System.ValueTuple.dll"

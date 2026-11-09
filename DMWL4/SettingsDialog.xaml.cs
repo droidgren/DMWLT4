@@ -45,6 +45,7 @@ namespace MWL4
             // so that Cancel really discards the changes.
             LogDimseDatasets.IsChecked = Settings.Default.Client_LogDimseDatasets;
             LogDataPDUs.IsChecked = Settings.Default.Client_LogDataPDUs;
+            ShowUpdateWindowAtStartup.IsChecked = Settings.Default.ShowUpdateWindowAtStartup;
 
             ConnectionTimeoutBox.Text = Settings.Default.ConnectionTimeoutSeconds.ToString(CultureInfo.InvariantCulture);
             AssociationTimeoutBox.Text = Settings.Default.AssociationTimeoutSeconds.ToString(CultureInfo.InvariantCulture);
@@ -197,6 +198,7 @@ namespace MWL4
             Settings.Default.VisibleColumns = string.Join(";", visibleNames);
             Settings.Default.Client_LogDimseDatasets = LogDimseDatasets.IsChecked == true;
             Settings.Default.Client_LogDataPDUs = LogDataPDUs.IsChecked == true;
+            Settings.Default.ShowUpdateWindowAtStartup = ShowUpdateWindowAtStartup.IsChecked == true;
             Settings.Default.ConnectionTimeoutSeconds = connectSeconds;
             Settings.Default.AssociationTimeoutSeconds = assocSeconds;
             Settings.Default.ResponseTimeoutSeconds = responseSeconds;

@@ -243,7 +243,7 @@
                 <!-- ===================================================================== -->
                 <Section Tag="Settings">
                     <Paragraph Style="{StaticResource H1}">Settings</Paragraph>
-                    <Paragraph>Open <Bold>File → Settings</Bold>. The settings are on four tabs: Result Columns, Query, Network and Logging. Changes are applied with <Bold>OK</Bold>; <Bold>Cancel</Bold> discards them.</Paragraph>
+                    <Paragraph>Open <Bold>File → Settings</Bold>. The settings are on five tabs: Result Columns, Query, Network, Logging and Updates. Changes are applied with <Bold>OK</Bold>; <Bold>Cancel</Bold> discards them.</Paragraph>
                     <Table>
                         <Table.Columns>
                             <TableColumn Width="190"/>
@@ -266,6 +266,8 @@
                                 <TableCell><Paragraph>Write every request and response dataset to the log. Useful when you need to see exactly what was sent.</Paragraph></TableCell></TableRow>
                             <TableRow><TableCell><Paragraph><Bold>Log Data PDUs</Bold></Paragraph></TableCell>
                                 <TableCell><Paragraph>Write the low-level network messages to the log. Produces a lot of output.</Paragraph></TableCell></TableRow>
+                            <TableRow><TableCell><Paragraph><Bold>Show a window at startup when a new version is available</Bold></Paragraph></TableCell>
+                                <TableCell><Paragraph>When the program starts it asks GitHub for the latest release, and opens a window with a link and the release notes if there is a new version. If GitHub cannot be reached, for example on a closed network, the program carries on and says nothing. Untick the box and nothing is sent at startup. <Bold>Help → About</Bold> still checks when you open it.</Paragraph></TableCell></TableRow>
                         </TableRowGroup>
                     </Table>
                     <Paragraph>

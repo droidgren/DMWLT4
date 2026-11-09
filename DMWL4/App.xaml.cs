@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using ILogger = Serilog.ILogger;
@@ -19,6 +20,7 @@ namespace MWL4
         {
             var serilogLogger = ConfigureLogging();
             RegisterGlobalExceptionHandlers();
+            SetAppUserModelId();
 
             var services = new ServiceCollection();
             services.AddLogging(logging =>
@@ -38,6 +40,22 @@ namespace MWL4
                 .Build();
 
             base.OnStartup(e);
+        }
+
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
+        private static extern void SetCurrentProcessExplicitAppUserModelID(string appId);
+
+        /// <summary>Must run before the first window. Without the ID the program still works, so a failure is only logged.</summary>
+        private static void SetAppUserModelId()
+        {
+            try
+            {
+                SetCurrentProcessExplicitAppUserModelID(AppInfo.AppUserModelId);
+            }
+            catch (Exception ex)
+            {
+                Log.ForContext<App>().Warning(ex, "Could not set the AppUserModelID");
+            }
         }
 
         public ILogger ConfigureLogging()

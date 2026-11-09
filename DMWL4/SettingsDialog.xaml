@@ -146,6 +146,15 @@
                               Content="Log Data PDUs"/>
                 </StackPanel>
             </TabItem>
+
+            <!-- ============================================================ -->
+            <TabItem Header="Updates">
+                <StackPanel Margin="5">
+                    <CheckBox x:Name="ShowUpdateWindowAtStartup" Content="Show a window at startup when a new version is available"/>
+                    <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" Foreground="#FF505050"
+                               Text="The program asks GitHub for the latest release when it starts. When this is off, it does not ask at startup. Help &gt; About still checks when you open it."/>
+                </StackPanel>
+            </TabItem>
         </TabControl>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">

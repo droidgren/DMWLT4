@@ -2,6 +2,7 @@
 using MWL4.Infrastructure;
 using MWL4.Models;
 using MWL4.ViewModels;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -9,6 +10,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -23,12 +25,15 @@ namespace MWL4
         // Column order as defined in the XAML, used by "Reset to default".
         private readonly List<DataGridColumn> _originalColumnOrder;
 
+        private readonly CancellationTokenSource _closing = new CancellationTokenSource();
+
         public MainWindow()
         {
             InitializeComponent();
             _viewModel = new MainViewModel();
             DataContext = _viewModel;
             AppendVersionToTitle();
+            ContentRendered += ShowUpdateWindowIfNewVersion;
 
             _originalColumnOrder = ResultsGrid.Columns.ToList();
 
@@ -55,8 +60,27 @@ namespace MWL4
             base.OnClosing(e);
         }
 
+        /// <summary>Only a new version is ever shown. Anything that goes wrong here stays in the log.</summary>
+        private async void ShowUpdateWindowIfNewVersion(object sender, EventArgs e)
+        {
+            try
+            {
+                var update = await StartupUpdateCheck.FindNewVersionAsync(
+                    Settings.Default.ShowUpdateWindowAtStartup, new UpdateChecker(AppInfo.CurrentVersion), _closing.Token);
+                if (update == null || _closing.IsCancellationRequested) return;
+
+                new UpdateAvailableWindow(update, AppInfo.CurrentVersion) { Owner = this }.Show();
+            }
+            catch (Exception ex)
+            {
+                Log.ForContext<MainWindow>().Warning(ex, "Could not show the new version window");
+            }
+        }
+
         protected override void OnClosed(EventArgs e)
         {
+            _closing.Cancel();
+
             // The help window is not owned by this window, so close it explicitly.
             foreach (var help in Application.Current.Windows.OfType<HelpWindow>().ToList())
             {

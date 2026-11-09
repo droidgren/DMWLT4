@@ -94,6 +94,15 @@ namespace DMWLT4.Properties
             set => this["TlsClientCertThumbprint"] = value;
         }
 
+        /// <summary>Check GitHub at startup and open a window if there is a new version. Off: nothing is sent at startup.</summary>
+        [UserScopedSetting]
+        [DefaultSettingValue("True")]
+        public bool ShowUpdateWindowAtStartup
+        {
+            get => (bool)this["ShowUpdateWindowAtStartup"];
+            set => this["ShowUpdateWindowAtStartup"] = value;
+        }
+
         /// <summary>Saved connection profiles, serialized as XML.</summary>
         [UserScopedSetting]
         [DefaultSettingValue("")]

@@ -11,6 +11,8 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -874,6 +876,135 @@ static class Program
         }
     }
 
+    // ---------------------------------------------------------------- version check
+
+    sealed class StubHandler : HttpMessageHandler
+    {
+        readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> _answer;
+        public HttpRequestMessage LastRequest;
+
+        public StubHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> answer) => _answer = answer;
+
+        public static StubHandler Answering(HttpStatusCode status, string body) =>
+            new StubHandler((r, t) => Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body ?? string.Empty) }));
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+        {
+            LastRequest = request;
+            return _answer(request, token);
+        }
+    }
+
+    static string ReleaseJson(string tag, string url = "https://github.com/droidgren/DMWLT4/releases/tag/x", string jsonBody = null) =>
+        "{\"id\":1,\"tag_name\":\"" + tag + "\",\"html_url\":\"" + url + "\",\"draft\":false,\"assets\":[{\"name\":\"a\"}]"
+        + (jsonBody == null ? string.Empty : ",\"body\":\"" + jsonBody + "\"") + "}";
+
+    static async Task TestUpdateChecker()
+    {
+        Console.WriteLine("\nVersion check");
+
+        Task<UpdateCheckResult> Check110(HttpMessageHandler handler, TimeSpan? timeout = null, CancellationToken token = default(CancellationToken)) =>
+            new UpdateChecker("1.1.0", handler: handler, timeout: timeout).CheckAsync(token);
+        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> hang = async (r, t) => { await Task.Delay(Timeout.Infinite, t); return null; };
+
+        foreach (var newer in new[] { "1.2.0", "v1.2.0", "V1.2.0", "1.4", "2", "1.1.1", "1.2.0-rc1" })
+        {
+            var result = await Check110(StubHandler.Answering(HttpStatusCode.OK, ReleaseJson(newer)));
+            Check($"Tag {newer} is newer than 1.1.0", result.Outcome == UpdateCheckOutcome.NewVersion && !result.LatestVersion.StartsWith("v", StringComparison.OrdinalIgnoreCase), result.Outcome.ToString());
+        }
+        foreach (var same in new[] { "1.1.0", "1.1", "v1.1", "1.0.9", "1.0", "0.9.9" })
+        {
+            var result = await Check110(StubHandler.Answering(HttpStatusCode.OK, ReleaseJson(same)));
+            Check($"Tag {same} is not newer than 1.1.0", result.Outcome == UpdateCheckOutcome.UpToDate, result.Outcome.ToString());
+        }
+
+        var found = await Check110(StubHandler.Answering(HttpStatusCode.OK, ReleaseJson("v1.2.0", "https://github.com/droidgren/DMWLT4/releases/tag/v1.2.0")));
+        Check("New version: names the version without the v", found.LatestVersion == "1.2.0", found.LatestVersion);
+        Check("New version: links to the release page", found.ReleaseUri?.AbsoluteUri == "https://github.com/droidgren/DMWLT4/releases/tag/v1.2.0", found.ReleaseUri?.ToString());
+
+        var odd = await Check110(StubHandler.Answering(HttpStatusCode.OK, ReleaseJson("1.2.0", "file:///C:/Windows/System32/calc.exe")));
+        Check("A link outside GitHub is not trusted", odd.ReleaseUri?.AbsoluteUri == AppInfo.ProjectUrl + "/releases/latest", odd.ReleaseUri?.ToString());
+        var lookalike = await Check110(StubHandler.Answering(HttpStatusCode.OK, ReleaseJson("1.2.0", "https://github.com.example.org/x")));
+        Check("A lookalike host is not trusted", lookalike.ReleaseUri?.AbsoluteUri == AppInfo.ProjectUrl + "/releases/latest", lookalike.ReleaseUri?.ToString());
+
+        Check("404: nothing published", (await Check110(StubHandler.Answering(HttpStatusCode.NotFound, "{}"))).Outcome == UpdateCheckOutcome.NoRelease);
+        Check("500: failed", (await Check110(StubHandler.Answering(HttpStatusCode.InternalServerError, "oops"))).Outcome == UpdateCheckOutcome.Failed);
+        Check("403 rate limit: failed", (await Check110(StubHandler.Answering(HttpStatusCode.Forbidden, "{}"))).Outcome == UpdateCheckOutcome.Failed);
+        Check("Malformed JSON: failed", (await Check110(StubHandler.Answering(HttpStatusCode.OK, "<html>proxy login</html>"))).Outcome == UpdateCheckOutcome.Failed);
+        Check("Empty answer: failed", (await Check110(StubHandler.Answering(HttpStatusCode.OK, string.Empty))).Outcome == UpdateCheckOutcome.Failed);
+        Check("No tag: failed", (await Check110(StubHandler.Answering(HttpStatusCode.OK, "{}"))).Outcome == UpdateCheckOutcome.Failed);
+        Check("A tag that is no version: failed", (await Check110(StubHandler.Answering(HttpStatusCode.OK, ReleaseJson("latest")))).Outcome == UpdateCheckOutcome.Failed);
+
+        var unreachable = new StubHandler((r, t) => { throw new HttpRequestException("No route to host"); });
+        Check("No network: failed, no exception", (await Check110(unreachable)).Outcome == UpdateCheckOutcome.Failed);
+
+        var watch = Stopwatch.StartNew();
+        var timedOut = await Check110(new StubHandler(hang), TimeSpan.FromMilliseconds(100));
+        Check("Timeout: failed, no exception", timedOut.Outcome == UpdateCheckOutcome.Failed && watch.Elapsed < TimeSpan.FromSeconds(5), watch.Elapsed.ToString());
+
+        var headers = StubHandler.Answering(HttpStatusCode.OK, ReleaseJson("1.1.0"));
+        await Check110(headers);
+        Check("Asks for the latest release of this project", headers.LastRequest.RequestUri.AbsoluteUri == "https://api.github.com/repos/droidgren/DMWLT4/releases/latest", headers.LastRequest.RequestUri.ToString());
+        Check("Sends the User-Agent GitHub requires, and nothing about the user", headers.LastRequest.Headers.UserAgent.ToString() == "DMWLT4/1.1.0", headers.LastRequest.Headers.UserAgent.ToString());
+
+        // The About window's status line
+        async Task<AboutViewModel> About(HttpMessageHandler handler)
+        {
+            var vm = new AboutViewModel(new UpdateChecker("1.1.0", handler: handler));
+            await vm.CheckForUpdateAsync(CancellationToken.None);
+            return vm;
+        }
+        var latest = await About(StubHandler.Answering(HttpStatusCode.OK, ReleaseJson("1.1.0")));
+        Check("About: latest version", latest.UpdateStatus == "You have the latest version." && latest.ReleaseUri == null, latest.UpdateStatus);
+        var update = await About(StubHandler.Answering(HttpStatusCode.OK, ReleaseJson("1.2.0")));
+        Check("About: new version with a link", update.UpdateStatus == "New version available: 1.2.0." && update.ReleaseUri != null && update.ReleaseLinkText.Length > 0, update.UpdateStatus);
+        var broken = await About(StubHandler.Answering(HttpStatusCode.InternalServerError, "oops"));
+        Check("About: failure is text, not an exception", broken.UpdateStatus == "Could not check for a new version." && broken.ReleaseUri == null, broken.UpdateStatus);
+
+        // The release notes
+        var withNotes = await Check110(StubHandler.Answering(HttpStatusCode.OK, ReleaseJson("1.2.0", jsonBody: "## New\\r\\n* First \\u00c5")));
+        Check("Notes come with a new version, line breaks included", withNotes.ReleaseNotes == "## New\r\n* First \u00c5", withNotes.ReleaseNotes);
+        var markdown = "# Release Notes\r\n\r\n> **Test only.**\r\n\r\n## New Features\n* **Bold** and `code`\n- Dash\n\n## Downloads\n* DMWLT4.msi\n\n**Full Changelog**: x";
+        var plain = ReleaseNotesText.ToPlainText(markdown).Replace("\r\n", "\n");
+        Check("Notes: Markdown becomes plain text, Downloads left out", plain == "Release Notes\n\nTest only.\n\nNew Features\n\u2022 Bold and code\n\u2022 Dash", plain);
+        Check("Notes: nothing gives nothing", ReleaseNotesText.ToPlainText(null).Length == 0 && ReleaseNotesText.ToPlainText("  \n ").Length == 0);
+
+        // The check at startup
+        Task<UpdateCheckResult> AtStartup(HttpMessageHandler handler, bool enabled = true, TimeSpan? timeout = null, CancellationToken token = default(CancellationToken)) =>
+            StartupUpdateCheck.FindNewVersionAsync(enabled, new UpdateChecker("1.1.0", handler: handler, timeout: timeout), token);
+
+        var startupFound = await AtStartup(StubHandler.Answering(HttpStatusCode.OK, ReleaseJson("1.2.0", jsonBody: "notes")));
+        Check("Startup: a new version is reported, with notes", startupFound?.LatestVersion == "1.2.0" && startupFound.ReleaseNotes == "notes", startupFound?.LatestVersion);
+        Check("Startup: silent when up to date", await AtStartup(StubHandler.Answering(HttpStatusCode.OK, ReleaseJson("1.1.0"))) == null);
+        Check("Startup: silent on 500", await AtStartup(StubHandler.Answering(HttpStatusCode.InternalServerError, "oops")) == null);
+        Check("Startup: silent with no network", await AtStartup(new StubHandler((r, t) => { throw new HttpRequestException("No route to host"); })) == null);
+        Check("Startup: silent on an unexpected exception", await AtStartup(new StubHandler((r, t) => { throw new NotSupportedException("Odd proxy"); })) == null);
+        Check("Startup: silent on timeout", await AtStartup(new StubHandler(hang), timeout: TimeSpan.FromMilliseconds(100)) == null);
+
+        using (var cts = new CancellationTokenSource())
+        {
+            var pending = AtStartup(new StubHandler(hang), timeout: TimeSpan.FromSeconds(30), token: cts.Token);
+            cts.Cancel();
+            Check("Startup: closing the program ends the check quietly", await pending == null);
+        }
+
+        var turnedOff = StubHandler.Answering(HttpStatusCode.OK, ReleaseJson("1.2.0"));
+        Check("Startup: turned off, no window", await AtStartup(turnedOff, enabled: false) == null);
+        Check("Startup: turned off, nothing is sent", turnedOff.LastRequest == null);
+
+        // Read from the attribute, because Settings.Default reflects the real user.config.
+        var defaultValue = _settings.GetType().GetProperty("ShowUpdateWindowAtStartup").GetCustomAttribute<DefaultSettingValueAttribute>()?.Value;
+        Check("Startup: the window is on by default", defaultValue == "True", defaultValue);
+
+        // Only changed in memory, and the dialog is never confirmed, so user.config is not touched.
+        foreach (var value in new[] { true, false })
+        {
+            _settings["ShowUpdateWindowAtStartup"] = value;
+            var box = (CheckBox)new SettingsDialog().FindName("ShowUpdateWindowAtStartup");
+            Check($"Settings: the Updates checkbox shows {value}", box.IsChecked == value);
+        }
+    }
+
     static Button FindButton(DependencyObject root, string content)
     {
         foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
@@ -897,7 +1028,7 @@ static class Program
             var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             app.Startup += async (s, e) =>
             {
-                try { await RunTests(); }
+                try { await RunTests(); await TestUpdateChecker(); }
                 catch (Exception ex) { _fail++; Console.WriteLine("  FAIL  harness exception: " + ex); }
                 app.Shutdown();
             };

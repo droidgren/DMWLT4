@@ -1,6 +1,6 @@
 # <img src="icon.jfif" width="48" height="48" alt="App Icon" style="vertical-align: middle;"> DICOM Modality Worklist Tester
 
-![Version](https://img.shields.io/badge/version-1.4.0-blue)
+![Version](https://img.shields.io/badge/version-1.4.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![.NET Framework](https://img.shields.io/badge/platform-.NET%20Framework%204.8%20WPF-512BD4)
 ![fo-dicom](https://img.shields.io/badge/fo--dicom-5.2.6-green)
@@ -39,6 +39,7 @@ To test DICOM C-STORE and generate test images, see the companion tool [DCST4 â€
 * **Query Statistics:** The status bar shows the time, the number of responses (and FF01 warnings) and the final status of the last query.
 * **Secure:** Full support for **TLS** (Transport Layer Security), with an option to accept self-signed server certificates and to authenticate with a client certificate from the Windows certificate store.
 * **Deep Logging:** Extensive logging settings to analyze communication traffic and debug DICOM associations.
+* **Version Check:** A window at startup tells you when a new version is available. It can be turned off in **File -> Settings -> Updates**.
 * **Open Source:** Free to use, modify, and distribute under the MIT License.
 
 ## Screenshots
@@ -145,7 +146,25 @@ This is a standard warning for unsigned software and does not indicate a securit
 
 Press **F1** or choose **Help -> Help** for the built-in guide.
 
+### Version check
+
+When the program starts, it asks GitHub for the latest release (`api.github.com`). If there is a new version, a window opens with a link to it and the release notes, which are collapsed until you open them. You only see this window when a new version was found: if GitHub cannot be reached, for example on a closed network, the program says nothing and carries on, and the failure is written to the log.
+
+To turn this off, untick **Show a window at startup when a new version is available** under **File -> Settings**, on the **Updates** tab. Nothing is then sent at startup.
+
+Opening **Help -> About** also asks GitHub and shows the result in that window, including if the check failed. Nothing is sent except an ordinary web request with the program's version as its User-Agent, and nothing is downloaded or installed.
+
 ## Changelog
+
+### 1.4.1
+
+**New**
+* A window at startup when a new version is available, with a link to it and the release notes, collapsed until opened. A check that fails is only written to the log.
+* Setting to turn this window off, on the **Updates** tab under **File -> Settings**. Nothing is then sent to GitHub at startup.
+* **Help -> About** shows whether a new version is available, with a link to it.
+
+**Fixes**
+* A shortcut pinned to Start is now kept when the program is updated with the MSI. The update from an earlier version may still lose the pin once.
 
 ### 1.4.0
 

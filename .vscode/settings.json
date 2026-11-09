@@ -1,0 +1,4 @@
+{
+  // Without a solution here, C# Dev Kit scans the folder and picks up the *_wpftmp.csproj files that WPF builds create for a moment.
+  "dotnet.defaultSolution": "DMWL4/MWL4.slnf"
+}
